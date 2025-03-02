@@ -27,7 +27,20 @@ class TestingConfig:
     SUPABASE_URL = 'http://mock-supabase-url'
     SUPABASE_KEY = 'mock-supabase-key'
     
+    # Stripe mock settings
+    STRIPE_API_KEY = 'sk_test_mock_key'
+    STRIPE_WEBHOOK_SECRET = 'whsec_mock_secret'
+    STRIPE_PUBLISHABLE_KEY = 'pk_test_mock_key'
+    
+    # Subscription settings
+    MONTHLY_SUBSCRIPTION_PRICE_ID = 'price_mock_id'
+    
     # Business settings
     APP_NAME = 'Plumber Leads (Testing)'
     LEAD_RADIUS_MILES = 25
-    LEAD_PRICE = 10.00 
+    LEAD_PRICE = 10.00
+    
+    # Twilio mock settings
+    TWILIO_ACCOUNT_SID = 'mock_account_sid'
+    TWILIO_AUTH_TOKEN = 'mock_auth_token'
+    TWILIO_PHONE_NUMBER = '+15555555555' 
