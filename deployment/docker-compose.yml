@@ -9,15 +9,23 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres:5432/postgres
       - FLASK_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       - postgres
     networks:
       - plumberleads_network
+    volumes:
+      - ./logs:/app/logs
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.plumberleads.rule=Host(`plumberleads.com`)"
       - "traefik.http.routers.plumberleads.entrypoints=websecure"
       - "traefik.http.routers.plumberleads.tls.certresolver=letsencrypt"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   postgres:
     image: postgis/postgis:14-3.3
@@ -30,6 +38,11 @@ services:
       - POSTGRES_DB=postgres
     networks:
       - plumberleads_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   traefik:
     image: traefik:v2.9
@@ -43,6 +56,11 @@ services:
       - ./traefik/acme.json:/acme.json
     networks:
       - plumberleads_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   plumberleads_network:

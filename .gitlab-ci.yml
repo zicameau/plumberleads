@@ -92,11 +92,12 @@ deploy:
       DB_PASSWORD=${DB_PASSWORD}
       CI_REGISTRY_IMAGE=${CI_REGISTRY_IMAGE}
       DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
+      LOG_LEVEL=DEBUG
       # Add any other required environment variables here
       EOF
     
     # Create deployment directory on server if it doesn't exist
-    - ssh $SERVER_USER@$SERVER_IP "mkdir -p /opt/plumberleads/traefik"
+    - ssh $SERVER_USER@$SERVER_IP "mkdir -p /opt/plumberleads/traefik /opt/plumberleads/logs"
     
     # Copy the .env file and deployment files to the server
     - scp deploy.env $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
@@ -112,8 +113,13 @@ deploy:
     # Pull and restart the containers
     - ssh $SERVER_USER@$SERVER_IP "cd /opt/plumberleads && docker-compose pull && docker-compose up -d --force-recreate"
     
+    # Add commands to check logs after deployment
+    - echo "Checking application logs after deployment..."
+    - ssh $SERVER_USER@$SERVER_IP "cd /opt/plumberleads && docker-compose logs --tail=100 web"
+    
     # Print deployment success message
     - echo "Deployment completed successfully! The application is now running at https://plumberleads.com"
+    - echo "To check logs, SSH into the server and run: cd /opt/plumberleads && docker-compose logs -f web"
   environment:
     name: production
     url: https://plumberleads.com
