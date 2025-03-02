@@ -5,7 +5,7 @@ class TestingConfig:
     TESTING = True
     DEBUG = True
     SECRET_KEY = 'test-key'
-    SERVER_NAME = 'localhost.localdomain'
+    SERVER_NAME = None  # Changed from 'localhost.localdomain' to avoid binding issues
     
     # Use SQLite for testing
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
@@ -21,4 +21,13 @@ class TestingConfig:
     MAIL_DEFAULT_SENDER = 'testing@example.com'
     
     # Disable CSRF protection for testing
-    WTF_CSRF_ENABLED = False 
+    WTF_CSRF_ENABLED = False
+    
+    # Supabase mock settings
+    SUPABASE_URL = 'http://mock-supabase-url'
+    SUPABASE_KEY = 'mock-supabase-key'
+    
+    # Business settings
+    APP_NAME = 'Plumber Leads (Testing)'
+    LEAD_RADIUS_MILES = 25
+    LEAD_PRICE = 10.00 
