@@ -12,7 +12,7 @@ echo -e "${YELLOW}Collecting diagnostic information...${NC}"
 
 # Create a directory for debug logs
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DEBUG_DIR="debug_logs_${TIMESTAMP}"
+DEBUG_DIR="/opt/plumberleads/debug_logs_${TIMESTAMP}"
 mkdir -p $DEBUG_DIR
 
 # Check if containers are running
@@ -30,36 +30,33 @@ echo "Container logs saved to $DEBUG_DIR/"
 # Check Traefik routes
 echo -e "${YELLOW}Checking Traefik routes...${NC}"
 docker-compose exec traefik traefik healthcheck > $DEBUG_DIR/traefik_health.log 2>&1 || echo "Traefik healthcheck not available"
-curl -s http://localhost:8080/api/http/routers > $DEBUG_DIR/traefik_routers.log 2>&1 || echo "Traefik API not available"
 
 # Check network connectivity
 echo -e "${YELLOW}Checking network connectivity...${NC}"
-docker network inspect plumberleads_network > $DEBUG_DIR/network_info.log 2>&1
+docker network ls > $DEBUG_DIR/network_list.log
+docker network inspect plumberleads_network > $DEBUG_DIR/network_info.log 2>&1 || echo "Network not found"
 
-# Check application routes
+# Check application routes inside the container
 echo -e "${YELLOW}Checking application routes...${NC}"
-docker-compose exec web python -c "
-import sys
-try:
-    from app import app
-    print('Available routes:')
-    for rule in app.url_map.iter_rules():
-        print(f'{rule.endpoint}: {rule.methods} {rule}')
-except Exception as e:
-    print(f'Error: {e}', file=sys.stderr)
-" > $DEBUG_DIR/app_routes.log 2>&1 || echo "Could not inspect application routes"
+docker-compose exec web bash -c "ls -la /app" > $DEBUG_DIR/app_files.log 2>&1
+docker-compose exec web bash -c "find /app -name '*.py' | sort" > $DEBUG_DIR/python_files.log 2>&1
+docker-compose exec web bash -c "env" > $DEBUG_DIR/container_env.log 2>&1
 
-# Check environment variables (redacted)
-echo -e "${YELLOW}Checking environment variables...${NC}"
-docker-compose exec web env | grep -v PASSWORD | grep -v KEY | grep -v SECRET > $DEBUG_DIR/env_vars.log 2>&1
+# Check if the application is accessible from inside the container
+echo -e "${YELLOW}Testing application access...${NC}"
+docker-compose exec web curl -v http://localhost:5000/ > $DEBUG_DIR/local_curl.log 2>&1 || echo "Application not accessible locally"
 
-# Check disk space
-echo -e "${YELLOW}Checking disk space...${NC}"
-df -h > $DEBUG_DIR/disk_space.log
+# Check Traefik configuration
+echo -e "${YELLOW}Checking Traefik configuration...${NC}"
+cat /opt/plumberleads/traefik/traefik.yml > $DEBUG_DIR/traefik_config.log 2>&1
 
-# Check memory usage
-echo -e "${YELLOW}Checking memory usage...${NC}"
-free -m > $DEBUG_DIR/memory_usage.log
+# Check Docker Compose configuration
+echo -e "${YELLOW}Checking Docker Compose configuration...${NC}"
+cat /opt/plumberleads/docker-compose.yml > $DEBUG_DIR/docker_compose_config.log 2>&1
+
+# Check environment file
+echo -e "${YELLOW}Checking environment file...${NC}"
+cat /opt/plumberleads/.env | grep -v PASSWORD | grep -v SECRET | grep -v KEY > $DEBUG_DIR/env_file.log 2>&1
 
 # Create a summary file
 echo -e "${YELLOW}Creating summary report...${NC}"
@@ -77,11 +74,15 @@ $(docker info | grep -E 'Server Version|Storage Driver|Logging Driver|Cgroup Dri
 
 Container Status:
 ----------------
-$(docker-compose ps --services | xargs -I{} sh -c "echo {} status: \$(docker-compose ps {} | grep {} | awk '{print \$4,\$5,\$6,\$7}')")
+$(docker-compose ps)
 
-Web Routes Check:
----------------
-$(grep "Available routes" $DEBUG_DIR/app_routes.log -A 100 2>/dev/null || echo "Could not retrieve routes")
+Traefik Routes:
+-------------
+$(cat $DEBUG_DIR/traefik_health.log 2>/dev/null || echo "No Traefik health information available")
+
+Application Files:
+----------------
+$(cat $DEBUG_DIR/app_files.log 2>/dev/null || echo "Could not list application files")
 
 Potential Issues:
 ---------------

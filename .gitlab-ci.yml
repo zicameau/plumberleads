@@ -92,13 +92,20 @@ deploy:
     - scp deployment/docker-compose.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/docker-compose.yml
     - scp deployment/traefik/traefik.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/traefik/traefik.yml
     - scp deployment/deploy.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/deploy.sh
+    - scp deployment/debug.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/debug.sh
+    - scp deployment/check_flask_app.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/check_flask_app.sh
+    - scp deployment/logging_config.py $SERVER_USER@$SERVER_IP:/opt/plumberleads/logging_config.py
     - echo "Running deployment script on server..."
     - |
       ssh $SERVER_USER@$SERVER_IP "export CI_REGISTRY=${CI_REGISTRY} && \
       export CI_REGISTRY_USER=${CI_REGISTRY_USER} && \
       export CI_REGISTRY_PASSWORD=${CI_REGISTRY_PASSWORD} && \
       chmod +x /opt/plumberleads/deploy.sh && \
+      chmod +x /opt/plumberleads/debug.sh && \
+      chmod +x /opt/plumberleads/check_flask_app.sh && \
       /opt/plumberleads/deploy.sh"
+    - echo "Running debug script to collect initial diagnostics..."
+    - ssh $SERVER_USER@$SERVER_IP "/opt/plumberleads/debug.sh"
   environment:
     name: production
     url: https://plumberleads.com
