@@ -1,6 +1,9 @@
 # app/routes/auth.py
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, g, session
 from app.services.auth_service import signup, login, logout, reset_password_request
+from flask_mail import Message, Mail
+import os
+from app import mail
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -8,18 +11,16 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 def register_plumber():
     """Registration page for plumbers."""
     if request.method == 'POST':
-        # Get form data
         email = request.form.get('email')
         password = request.form.get('password')
-        password_confirm = request.form.get('password_confirm')
+        confirm_password = request.form.get('confirm_password')
         company_name = request.form.get('company_name')
         
-        # Validate inputs
-        if not email or not password or not company_name:
+        if not all([email, password, confirm_password, company_name]):
             flash('All fields are required', 'error')
-            return render_template('auth/register_plumber.html', form_data=request.form)
+            return render_template('auth/register_plumber.html')
             
-        if password != password_confirm:
+        if password != confirm_password:
             flash('Passwords do not match', 'error')
             return render_template('auth/register_plumber.html', form_data=request.form)
         
@@ -60,7 +61,7 @@ def registration_success():
                          role=registered_role)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
-def login_route():
+def login():
     """Login page."""
     # Check if already logged in
     if 'token' in session:
@@ -126,7 +127,7 @@ def logout_route():
     session.clear()
     
     flash('You have been logged out', 'success')
-    return redirect(url_for('auth.login_route'))
+    return redirect(url_for('auth.login'))
 
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
@@ -144,7 +145,7 @@ def reset_password():
         
         if reset_sent:
             flash('Password reset instructions have been sent to your email.', 'success')
-            return redirect(url_for('auth.login_route'))
+            return redirect(url_for('auth.login'))
         else:
             flash('Failed to send password reset email. Please try again.', 'error')
             return render_template('auth/reset_password.html', email=email)
@@ -159,7 +160,7 @@ def confirm_email():
     # The token is handled by Supabase automatically
     
     flash('Your email has been confirmed. You can now log in.', 'success')
-    return redirect(url_for('auth.login_route'))
+    return redirect(url_for('auth.login'))
 
 @auth_bp.route('/api/login', methods=['POST'])
 def api_login():

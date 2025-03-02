@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome to Plumber Leads{% endblock %}
+
+{% block content %}
+<div class="jumbotron mt-4">
+    <h1 class="display-4">Welcome to Plumber Leads</h1>
+    <p class="lead">Connecting customers with qualified plumbers in their area.</p>
+    <hr class="my-4">
+    <p>Are you a plumber looking for new customers? Register today to start receiving leads!</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('auth.register_plumber') }}" role="button">Register as a Plumber</a>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">For Plumbers</h5>
+                <p class="card-text">Register to receive qualified leads in your service area.</p>
+                <a href="{{ url_for('auth.register_plumber') }}" class="btn btn-primary">Register Now</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">For Customers</h5>
+                <p class="card-text">Find qualified plumbers in your area to solve your plumbing issues.</p>
+                <a href="#" class="btn btn-primary">Submit a Request</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">How It Works</h5>
+                <p class="card-text">Learn more about our platform and how we connect customers with plumbers.</p>
+                <a href="#" class="btn btn-primary">Learn More</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

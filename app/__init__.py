@@ -5,6 +5,19 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_mail import Mail
 
+# Try to import SQLAlchemy, but don't fail if it's not available
+try:
+    from flask_sqlalchemy import SQLAlchemy
+    from flask_migrate import Migrate
+    db = SQLAlchemy()
+    migrate = Migrate()
+    has_sqlalchemy = True
+except ImportError:
+    has_sqlalchemy = False
+    db = None
+    migrate = None
+    print("Warning: SQLAlchemy not available. Running in limited mode.")
+
 # Load environment variables
 load_dotenv()
 
@@ -20,19 +33,40 @@ def create_app(config_name=None):
         config_name = os.getenv('FLASK_ENV', 'development')
     app.config.from_object(f'app.config.{config_name.capitalize()}Config')
     
-    # Initialize extensions
-    mail.init_app(app)  # Initialize Flask-Mail
+    # Initialize extensions if available
+    if has_sqlalchemy:
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        db.init_app(app)
+        migrate.init_app(app, db)
     
     # Register blueprints
-    from app.routes.auth import auth_bp
-    from app.routes.customer import customer_bp
-    from app.routes.plumber import plumber_bp
-    from app.routes.admin import admin_bp
+    from app.routes.home import home_bp
+    app.register_blueprint(home_bp)
     
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(customer_bp)
-    app.register_blueprint(plumber_bp)
-    app.register_blueprint(admin_bp)
+    try:
+        from app.routes.auth import auth_bp
+        app.register_blueprint(auth_bp)
+    except ImportError as e:
+        print(f"Warning: Could not import auth blueprint: {e}")
+    
+    try:
+        from app.routes.customer import customer_bp
+        app.register_blueprint(customer_bp)
+    except ImportError as e:
+        print(f"Warning: Could not import customer blueprint: {e}")
+    
+    try:
+        from app.routes.plumber import plumber_bp
+        app.register_blueprint(plumber_bp)
+    except ImportError as e:
+        print(f"Warning: Could not import plumber blueprint: {e}")
+    
+    try:
+        from app.routes.admin import admin_bp
+        app.register_blueprint(admin_bp)
+    except ImportError as e:
+        print(f"Warning: Could not import admin blueprint: {e}")
     
     # Create Supabase client
     from app.services.auth_service import init_supabase
