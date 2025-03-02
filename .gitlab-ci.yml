@@ -59,7 +59,6 @@ build:
     DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
   before_script:
     - echo "Logging in to GitLab Container Registry..."
-    # Use explicit registry URL with the deploy token credentials
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - echo "Building Docker image..."
@@ -70,41 +69,31 @@ build:
   only:
     - main
 
-# Deploy to DigitalOcean
+# Deploy to production server
 deploy:
   stage: deploy
   image: alpine:latest
   variables:
     DOCKER_IMAGE_TAG: $CI_COMMIT_SHORT_SHA
   before_script:
-    - apk add --no-cache openssh-client
+    - apk add --no-cache openssh-client bash
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
+    - chmod +x deployment/setup-env.sh
   script:
-    - echo "Creating temporary .env file for deployment..."
-    - |
-      cat > deploy.env << EOF
-      DB_PASSWORD=${DB_PASSWORD}
-      CI_REGISTRY_IMAGE=${CI_REGISTRY_IMAGE}
-      DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
-      LOG_LEVEL=DEBUG
-      # Add any other required environment variables here
-      EOF
-    - ssh $SERVER_USER@$SERVER_IP "mkdir -p /opt/plumberleads/traefik /opt/plumberleads/logs"
+    - echo "Preparing deployment..."
+    - ./deployment/setup-env.sh
+    - echo "Copying files to server..."
     - scp deploy.env $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
     - scp deployment/docker-compose.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/docker-compose.yml
     - scp deployment/traefik/traefik.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/traefik/traefik.yml
-    - ssh $SERVER_USER@$SERVER_IP "touch /opt/plumberleads/traefik/acme.json && chmod 600 /opt/plumberleads/traefik/acme.json"
-    - ssh $SERVER_USER@$SERVER_IP "echo ${CI_REGISTRY_PASSWORD} | docker login -u ${CI_REGISTRY_USER} --password-stdin ${CI_REGISTRY}"
-    - ssh $SERVER_USER@$SERVER_IP "cd /opt/plumberleads && docker-compose pull && docker-compose up -d --force-recreate"
-    - echo "Checking application logs after deployment..."
-    - ssh $SERVER_USER@$SERVER_IP "cd /opt/plumberleads && docker-compose logs --tail=100 web"
-    - echo "Deployment completed successfully! The application is now running at https://plumberleads.com"
-    - echo "To check logs, SSH into the server and run: cd /opt/plumberleads && docker-compose logs -f web"
+    - scp deployment/deploy.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/deploy.sh
+    - echo "Running deployment script on server..."
+    - ssh $SERVER_USER@$SERVER_IP "chmod +x /opt/plumberleads/deploy.sh && /opt/plumberleads/deploy.sh"
   environment:
     name: production
     url: https://plumberleads.com
