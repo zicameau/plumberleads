@@ -73,17 +73,24 @@ deploy:
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
   script:
-    # Pass environment variables directly to the SSH command
+    # Create a temporary .env file with required variables
+    - echo "Creating temporary .env file for deployment..."
     - |
-      ssh $SERVER_USER@$SERVER_IP "cd /opt/plumberleads && \
-      DB_PASSWORD='${DB_PASSWORD}' \
-      CI_REGISTRY_IMAGE='${CI_REGISTRY_IMAGE}' \
-      DOCKER_IMAGE_TAG='${DOCKER_IMAGE_TAG}' \
-      docker-compose pull && \
-      DB_PASSWORD='${DB_PASSWORD}' \
-      CI_REGISTRY_IMAGE='${CI_REGISTRY_IMAGE}' \
-      DOCKER_IMAGE_TAG='${DOCKER_IMAGE_TAG}' \
-      docker-compose up -d --force-recreate"
+      cat > deploy.env << EOF
+      DB_PASSWORD=${DB_PASSWORD}
+      CI_REGISTRY_IMAGE=${CI_REGISTRY_IMAGE}
+      DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
+      # Add any other required environment variables here
+      EOF
+    # Copy the .env file to the server
+    - scp deploy.env $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
+    
+    # Log in to GitLab Container Registry on the remote server
+    # This is the critical step that was missing
+    - ssh $SERVER_USER@$SERVER_IP "echo ${CI_REGISTRY_PASSWORD} | docker login -u ${CI_REGISTRY_USER} --password-stdin ${CI_REGISTRY}"
+    
+    # Pull and restart the containers
+    - ssh $SERVER_USER@$SERVER_IP "cd /opt/plumberleads && docker-compose pull && docker-compose up -d --force-recreate"
   environment:
     name: production
     url: https://plumberleads.com
