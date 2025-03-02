@@ -29,10 +29,15 @@ test:
     POSTGRES_PASSWORD: postgres
     DATABASE_URL: postgresql://postgres:postgres@postgres:5432/test_db
     FLASK_ENV: testing
+    PYTHONPATH: $CI_PROJECT_DIR
   before_script:
     - pip install -r requirements.txt -r requirements-dev.txt
+    - mkdir -p tests  # Ensure tests directory exists
+    - echo "Running tests..."
   script:
-    - pytest
+    - pytest -v tests/  # Specify the tests directory explicitly
+  after_script:
+    - echo "Test stage completed"
 
 # Build Docker image
 build:
