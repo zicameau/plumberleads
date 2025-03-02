@@ -44,6 +44,22 @@ docker-compose exec -T web bash /app/check_flask_app.sh > /opt/plumberleads/flas
 echo "Recent application logs:"
 docker-compose logs --tail=50 web
 
+# Add firewall configuration
+if command -v ufw > /dev/null; then
+  echo "Configuring firewall..."
+  ufw allow 80/tcp
+  ufw allow 443/tcp
+  ufw allow 8080/tcp
+  
+  # Enable the firewall if it's not already enabled
+  if ! ufw status | grep -q "Status: active"; then
+    echo "y" | ufw enable
+  fi
+  
+  echo "Firewall status:"
+  ufw status
+fi
+
 echo "Deployment completed successfully!"
 echo "To debug the application, run: /opt/plumberleads/tools/debug.sh"
 echo "To access the application, navigate to: http://SERVER_IP"

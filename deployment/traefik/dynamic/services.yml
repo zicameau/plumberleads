@@ -22,7 +22,7 @@ http:
     web-service:
       loadBalancer:
         servers:
-          - url: "http://web:5000"
+          - url: "http://plumberleads-web:5000"
         passHostHeader: true
 
   middlewares:

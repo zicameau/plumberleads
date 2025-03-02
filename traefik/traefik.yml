@@ -32,6 +32,10 @@ providers:
     directory: "/etc/traefik/dynamic"
     watch: true
 
+# Add ping for healthcheck
+ping:
+  entryPoint: web
+
 # Configure certificate resolvers
 certificatesResolvers:
   letsencrypt:
@@ -43,9 +47,10 @@ certificatesResolvers:
 
 # Configure logs
 log:
-  level: "INFO"
+  level: "DEBUG"
   filePath: "/var/log/traefik/traefik.log"
 
 # Configure access logs
 accessLog:
-  filePath: "/var/log/traefik/access.log" 
+  filePath: "/var/log/traefik/access.log"
+  bufferingSize: 100 
