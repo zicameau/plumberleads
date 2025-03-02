@@ -1,6 +1,12 @@
 entryPoints:
   web:
     address: ":80"
+    # Redirect HTTP to HTTPS
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
   
   # Keep websecure for future use, but we'll primarily use HTTP for development
   websecure:
@@ -18,7 +24,8 @@ providers:
 # Enable API and dashboard for debugging
 api:
   dashboard: true
-  insecure: true
+  # Access dashboard securely through HTTPS
+  insecure: false
 
 # Add ping for healthcheck
 ping:
@@ -32,11 +39,12 @@ accessLog:
 # Enable logs
 log:
   level: "DEBUG"
+  filePath: "/var/log/traefik/traefik.log"
 
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: your-actual-email@yourdomain.com
+      email: "your-email@example.com"  # Replace with your actual email
       storage: /acme.json
       httpChallenge:
         entryPoint: web

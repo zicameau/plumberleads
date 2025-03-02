@@ -19,9 +19,11 @@ services:
       - plumberleads_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
       - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
       - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$talBPKvT$$1oJK1OyTVzlJva5T/XrpO/"  # admin:password
 
   web:
@@ -43,8 +45,10 @@ services:
       - plumberleads_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.web.entrypoints=web"
+      - "traefik.http.routers.web.entrypoints=websecure"
       - "traefik.http.routers.web.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.web.tls=true"
+      - "traefik.http.routers.web.tls.certresolver=letsencrypt"
       - "traefik.http.services.web.loadbalancer.server.port=5000"
 
   postgres:

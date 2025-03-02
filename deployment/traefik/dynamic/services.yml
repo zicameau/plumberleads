@@ -1,6 +1,6 @@
 http:
   routers:
-    # Router for the web application
+    # Router for the web application (HTTP - redirects to HTTPS)
     web-router:
       entryPoints:
         - web
@@ -8,15 +8,35 @@ http:
       rule: "PathPrefix(`/`)"
       priority: 1
     
-    # Router for the Traefik dashboard
+    # Router for the web application (HTTPS)
+    web-secure-router:
+      entryPoints:
+        - websecure
+      service: web-service
+      rule: "PathPrefix(`/`)"
+      priority: 1
+      tls:
+        certResolver: letsencrypt
+    
+    # Router for the Traefik dashboard (HTTP - redirects to HTTPS)
     dashboard-router:
       entryPoints:
         - web
       service: api@internal
       rule: "PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
       priority: 10
+    
+    # Router for the Traefik dashboard (HTTPS)
+    dashboard-secure-router:
+      entryPoints:
+        - websecure
+      service: api@internal
+      rule: "PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
+      priority: 10
+      tls:
+        certResolver: letsencrypt
       middlewares:
-        - dashboard-stripprefix
+        - dashboard-auth
 
   services:
     web-service:
@@ -26,7 +46,7 @@ http:
         passHostHeader: true
 
   middlewares:
-    dashboard-stripprefix:
-      stripPrefix:
-        prefixes:
-          - "/dashboard" 
+    dashboard-auth:
+      basicAuth:
+        users:
+          - "admin:$apr1$talBPKvT$1oJK1OyTVzlJva5T/XrpO/" 
