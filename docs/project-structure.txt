@@ -1,0 +1,114 @@
+plumber_leads/
+│
+├── app/
+│   ├── __init__.py             # Flask app initialization
+│   ├── config.py               # Core configuration settings
+│   ├── config/
+│   │   ├── __init__.py
+│   │   ├── development.py      # Development environment config
+│   │   ├── local.py            # Local development config
+│   │   ├── production.py       # Production environment config
+│   │   └── testing.py          # Testing environment config
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── db.py               # Database utilities
+│   │   ├── user.py             # User model (customers)
+│   │   ├── plumber.py          # Plumber model
+│   │   ├── lead.py             # Lead model
+│   │   └── lead_claim.py       # Lead claim model
+│   │
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── auth.py             # Authentication routes
+│   │   ├── customer.py         # Customer-facing routes
+│   │   ├── plumber.py          # Plumber-facing routes
+│   │   └── admin.py            # Admin routes
+│   │
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── auth_service.py     # Authentication with Supabase
+│   │   ├── lead_service.py     # Lead generation and matching
+│   │   ├── payment_service.py  # Stripe integration
+│   │   ├── notification_service.py  # Email/SMS notifications
+│   │   └── mock/              # Mock services for development
+│   │       ├── __init__.py
+│   │       ├── email_service.py    # Mock email service
+│   │       ├── sms_service.py      # Mock SMS service
+│   │       └── geocoding_service.py # Mock geocoding service
+│   │
+│   ├── static/                 # Static assets
+│   │   ├── css/
+│   │   ├── js/
+│   │   └── images/
+│   │
+│   ├── templates/              # Jinja2 templates
+│   │   ├── layout.html
+│   │   ├── home.html
+│   │   ├── customer/
+│   │   │   ├── form.html       # Lead submission form
+│   │   │   └── confirmation.html
+│   │   ├── plumber/
+│   │   │   ├── dashboard.html
+│   │   │   ├── leads.html
+│   │   │   └── account.html
+│   │   ├── admin/
+│   │   │   ├── dashboard.html
+│   │   │   ├── leads.html
+│   │   │   └── plumbers.html
+│   │   └── emails/             # Email templates
+│   │       ├── customer_confirmation.html
+│   │       └── plumber_lead_notification.html
+│   │
+│   └── utils/                 # Utility functions
+│       ├── __init__.py
+│       ├── fake_data.py       # Fake data generator
+│       └── validators.py      # Input validation utilities
+│
+├── docs/                      # Project documentation
+│   ├── checklist.md           # Implementation checklist
+│   ├── api.md                 # API documentation
+│   ├── deployment.md          # Deployment guide
+│   ├── development.md         # Development guide
+│   ├── architecture.md        # System architecture
+│   └── screenshots/           # Application screenshots
+│
+├── tests/                      # Unit and integration tests
+│   ├── __init__.py
+│   ├── conftest.py            # Test fixtures
+│   ├── test_models.py
+│   ├── test_routes.py
+│   └── test_services.py
+│
+├── docker/                    # Docker configurations
+│   ├── nginx/                 # Nginx configs for production
+│   │   └── nginx.conf
+│   └── supabase/              # Supabase configurations
+│       └── config.toml
+│
+├── supabase/                  # Supabase files
+│   ├── migrations/            # Database migrations
+│   │   └── 20240301000000_initial_schema.sql
+│   └── volumes/               # Mounted volumes (git-ignored)
+│
+├── .github/                   # GitHub workflows
+│   └── workflows/
+│       ├── ci.yml             # CI pipeline
+│       └── deploy.yml         # Deployment pipeline
+│
+├── .vscode/                   # VS Code configurations
+│   ├── launch.json           # Debugging configurations
+│   └── settings.json         # Editor settings
+│
+├── .env.example               # Example environment variables for production
+├── .env.local.example         # Example environment variables for local dev
+├── .gitignore
+├── Dockerfile                 # Production Dockerfile
+├── Dockerfile.dev             # Development Dockerfile
+├── docker-compose.yml         # Docker Compose for local development
+├── Makefile                   # Development tasks
+├── requirements.txt           # Python dependencies
+├── requirements-dev.txt       # Development dependencies
+├── setup-local.sh             # Local development setup script
+├── run.py                     # Application entry point
+└── README.md                  # Project documentation
