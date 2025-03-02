@@ -12,7 +12,14 @@ touch /opt/plumberleads/traefik/acme.json
 chmod 600 /opt/plumberleads/traefik/acme.json
 
 # Log in to GitLab Container Registry
-echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+# Fix: Ensure both username and password are provided correctly
+if [ -z "${CI_REGISTRY_USER}" ] || [ -z "${CI_REGISTRY_PASSWORD}" ]; then
+  echo "Error: CI_REGISTRY_USER or CI_REGISTRY_PASSWORD environment variables are not set"
+  exit 1
+fi
+
+# The correct way to use docker login with password-stdin
+echo "${CI_REGISTRY_PASSWORD}" | docker login "${CI_REGISTRY}" --username "${CI_REGISTRY_USER}" --password-stdin
 
 # Pull and restart the containers
 cd /opt/plumberleads
