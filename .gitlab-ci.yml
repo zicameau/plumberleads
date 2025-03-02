@@ -45,17 +45,22 @@ test:
     - echo "Test stage completed"
   allow_failure: true  # Allow the test stage to fail without failing the pipeline
 
-# Build Docker image
+# Build and push Docker image
 build:
   stage: build
   image: docker:20.10.16
   services:
     - docker:20.10.16-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
   before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - echo "Logging in to GitLab Container Registry..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
-    - docker build -t $CI_REGISTRY_IMAGE:$DOCKER_IMAGE_TAG -t $CI_REGISTRY_IMAGE:latest .
-    - docker push $CI_REGISTRY_IMAGE:$DOCKER_IMAGE_TAG
+    - echo "Building Docker image..."
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA -t $CI_REGISTRY_IMAGE:latest .
+    - echo "Pushing Docker image to registry..."
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $CI_REGISTRY_IMAGE:latest
   only:
     - main
@@ -64,6 +69,8 @@ build:
 deploy:
   stage: deploy
   image: alpine:latest
+  variables:
+    DOCKER_IMAGE_TAG: $CI_COMMIT_SHORT_SHA
   before_script:
     - apk add --no-cache openssh-client
     - eval $(ssh-agent -s)
@@ -82,11 +89,68 @@ deploy:
       DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
       # Add any other required environment variables here
       EOF
-    # Copy the .env file to the server
+      
+    # Create a docker-compose.yml file with the updated image tag
+    - |
+      cat > docker-compose.yml << EOF
+      version: '3.8'
+
+      services:
+        web:
+          image: \${CI_REGISTRY_IMAGE}:\${DOCKER_IMAGE_TAG:-latest}
+          restart: always
+          env_file:
+            - .env.production
+          environment:
+            - DATABASE_URL=postgresql://postgres:\${DB_PASSWORD}@postgres:5432/postgres
+            - FLASK_ENV=production
+          depends_on:
+            - postgres
+          networks:
+            - plumberleads_network
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.plumberleads.rule=Host(\`plumberleads.com\`)"
+            - "traefik.http.routers.plumberleads.entrypoints=websecure"
+            - "traefik.http.routers.plumberleads.tls.certresolver=letsencrypt"
+
+        postgres:
+          image: postgis/postgis:14-3.3
+          restart: always
+          volumes:
+            - postgres_data:/var/lib/postgresql/data
+          environment:
+            - POSTGRES_PASSWORD=\${DB_PASSWORD}
+            - POSTGRES_USER=postgres
+            - POSTGRES_DB=postgres
+          networks:
+            - plumberleads_network
+
+        traefik:
+          image: traefik:v2.9
+          restart: always
+          ports:
+            - "80:80"
+            - "443:443"
+          volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+            - ./traefik/acme.json:/acme.json
+          networks:
+            - plumberleads_network
+
+      networks:
+        plumberleads_network:
+
+      volumes:
+        postgres_data:
+      EOF
+    
+    # Copy the .env file and docker-compose.yml to the server
     - scp deploy.env $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
+    - scp docker-compose.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/docker-compose.yml
     
     # Log in to GitLab Container Registry on the remote server
-    # This is the critical step that was missing
     - ssh $SERVER_USER@$SERVER_IP "echo ${CI_REGISTRY_PASSWORD} | docker login -u ${CI_REGISTRY_USER} --password-stdin ${CI_REGISTRY}"
     
     # Pull and restart the containers
@@ -96,3 +160,5 @@ deploy:
     url: https://plumberleads.com
   only:
     - main
+  needs:
+    - build

@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  web:
+    image: ${CI_REGISTRY_IMAGE}:${DOCKER_IMAGE_TAG:-latest}
+    restart: always
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres:5432/postgres
+      - FLASK_ENV=production
+    depends_on:
+      - postgres
+    networks:
+      - plumberleads_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.plumberleads.rule=Host(`plumberleads.com`)"
+      - "traefik.http.routers.plumberleads.entrypoints=websecure"
+      - "traefik.http.routers.plumberleads.tls.certresolver=letsencrypt"
+
+  postgres:
+    image: postgis/postgis:14-3.3
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+    networks:
+      - plumberleads_network
+
+  traefik:
+    image: traefik:v2.9
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/acme.json:/acme.json
+    networks:
+      - plumberleads_network
+
+networks:
+  plumberleads_network:
+
+volumes:
+  postgres_data: 
