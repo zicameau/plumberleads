@@ -40,7 +40,3 @@ certificatesResolvers:
       storage: /acme.json
       httpChallenge:
         entryPoint: web
-
-api:
-  dashboard: true
-  insecure: false 
