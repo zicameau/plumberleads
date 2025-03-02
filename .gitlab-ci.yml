@@ -85,7 +85,6 @@ deploy:
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
   script:
-    # Create a temporary .env file with required variables
     - echo "Creating temporary .env file for deployment..."
     - |
       cat > deploy.env << EOF
@@ -95,29 +94,15 @@ deploy:
       LOG_LEVEL=DEBUG
       # Add any other required environment variables here
       EOF
-    
-    # Create deployment directory on server if it doesn't exist
     - ssh $SERVER_USER@$SERVER_IP "mkdir -p /opt/plumberleads/traefik /opt/plumberleads/logs"
-    
-    # Copy the .env file and deployment files to the server
     - scp deploy.env $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
     - scp deployment/docker-compose.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/docker-compose.yml
     - scp deployment/traefik/traefik.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/traefik/traefik.yml
-    
-    # Create and set permissions for acme.json if it doesn't exist
     - ssh $SERVER_USER@$SERVER_IP "touch /opt/plumberleads/traefik/acme.json && chmod 600 /opt/plumberleads/traefik/acme.json"
-    
-    # Log in to GitLab Container Registry on the remote server
     - ssh $SERVER_USER@$SERVER_IP "echo ${CI_REGISTRY_PASSWORD} | docker login -u ${CI_REGISTRY_USER} --password-stdin ${CI_REGISTRY}"
-    
-    # Pull and restart the containers
     - ssh $SERVER_USER@$SERVER_IP "cd /opt/plumberleads && docker-compose pull && docker-compose up -d --force-recreate"
-    
-    # Add commands to check logs after deployment
     - echo "Checking application logs after deployment..."
     - ssh $SERVER_USER@$SERVER_IP "cd /opt/plumberleads && docker-compose logs --tail=100 web"
-    
-    # Print deployment success message
     - echo "Deployment completed successfully! The application is now running at https://plumberleads.com"
     - echo "To check logs, SSH into the server and run: cd /opt/plumberleads && docker-compose logs -f web"
   environment:
