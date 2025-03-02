@@ -1,69 +1,67 @@
 version: '3.8'
 
 services:
+  traefik:
+    image: traefik:v2.9
+    container_name: plumberleads-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Expose dashboard port for development
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/acme.json:/acme.json
+      - ./logs/traefik:/var/log/traefik
+    networks:
+      - plumberleads_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.routers.traefik.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$talBPKvT$$1oJK1OyTVzlJva5T/XrpO/"  # admin:password
+
   web:
     image: ${CI_REGISTRY_IMAGE}:${DOCKER_IMAGE_TAG:-latest}
-    restart: always
+    container_name: plumberleads-web
+    restart: unless-stopped
     env_file:
       - .env.production
     environment:
-      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres:5432/postgres
-      - FLASK_ENV=production
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres:5432/plumberleads
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - LOG_LEVEL=DEBUG
     depends_on:
       - postgres
+    volumes:
+      - ./logs/web:/app/logs
     networks:
       - plumberleads_network
-    volumes:
-      - ./logs:/app/logs
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.plumberleads.rule=Host(`plumberleads.com`)"
-      - "traefik.http.routers.plumberleads.entrypoints=websecure"
-      - "traefik.http.routers.plumberleads.tls.certresolver=letsencrypt"
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - "traefik.http.routers.web.entrypoints=web"
+      - "traefik.http.routers.web.rule=PathPrefix(`/`)"
+      - "traefik.http.services.web.loadbalancer.server.port=5000"
 
   postgres:
     image: postgis/postgis:14-3.3
-    restart: always
+    container_name: plumberleads-postgres
+    restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=postgres
+      - POSTGRES_DB=plumberleads
     networks:
       - plumberleads_network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  traefik:
-    image: traefik:v2.9
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
-      - ./traefik/acme.json:/acme.json
-    networks:
-      - plumberleads_network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 networks:
   plumberleads_network:
+    name: plumberleads_network
 
 volumes:
   postgres_data: 

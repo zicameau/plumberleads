@@ -1,0 +1,32 @@
+http:
+  routers:
+    # Router for the web application
+    web-router:
+      entryPoints:
+        - web
+      service: web-service
+      rule: "PathPrefix(`/`)"
+      priority: 1
+    
+    # Router for the Traefik dashboard
+    dashboard-router:
+      entryPoints:
+        - web
+      service: api@internal
+      rule: "PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
+      priority: 10
+      middlewares:
+        - dashboard-stripprefix
+
+  services:
+    web-service:
+      loadBalancer:
+        servers:
+          - url: "http://web:5000"
+        passHostHeader: true
+
+  middlewares:
+    dashboard-stripprefix:
+      stripPrefix:
+        prefixes:
+          - "/dashboard" 

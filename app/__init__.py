@@ -1,6 +1,6 @@
 # app/__init__.py
 import os
-from flask import Flask
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_mail import Mail
@@ -24,7 +24,8 @@ load_dotenv()
 # Initialize mail
 mail = Mail()
 
-def create_app(config_name=None):
+def create_app():
+    """Create and configure the Flask application."""
     app = Flask(__name__)
     CORS(app)  # Enable CORS
     

@@ -84,17 +84,24 @@ deploy:
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
     - chmod +x deployment/setup-env.sh
+    - chmod +x deployment/debug.sh
+    - chmod +x deployment/check_flask_app.sh
+    - chmod +x deployment/debug_container.sh
+    - mkdir -p deployment/traefik/dynamic
   script:
     - echo "Preparing deployment..."
     - ./deployment/setup-env.sh
     - echo "Copying files to server..."
+    - ssh $SERVER_USER@$SERVER_IP "mkdir -p /opt/plumberleads/traefik/dynamic"
     - scp deploy.env $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
     - scp deployment/docker-compose.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/docker-compose.yml
     - scp deployment/traefik/traefik.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/traefik/traefik.yml
+    - scp deployment/traefik/dynamic/services.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/traefik/dynamic/services.yml
     - scp deployment/deploy.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/deploy.sh
     - scp deployment/debug.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/debug.sh
     - scp deployment/check_flask_app.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/check_flask_app.sh
     - scp deployment/logging_config.py $SERVER_USER@$SERVER_IP:/opt/plumberleads/logging_config.py
+    - scp deployment/debug_container.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/debug_container.sh
     - echo "Running deployment script on server..."
     - |
       ssh $SERVER_USER@$SERVER_IP "export CI_REGISTRY=${CI_REGISTRY} && \
@@ -103,12 +110,18 @@ deploy:
       chmod +x /opt/plumberleads/deploy.sh && \
       chmod +x /opt/plumberleads/debug.sh && \
       chmod +x /opt/plumberleads/check_flask_app.sh && \
+      chmod +x /opt/plumberleads/debug_container.sh && \
       /opt/plumberleads/deploy.sh"
+    - echo "Creating debug container..."
+    - ssh $SERVER_USER@$SERVER_IP "/opt/plumberleads/debug_container.sh"
     - echo "Running debug script to collect initial diagnostics..."
     - ssh $SERVER_USER@$SERVER_IP "/opt/plumberleads/debug.sh"
+    - echo "Testing application access..."
+    - |
+      ssh $SERVER_USER@$SERVER_IP "docker exec debug-container curl -v http://web:5000/ || echo 'Failed to access application'"
   environment:
-    name: production
-    url: https://plumberleads.com
+    name: development
+    url: http://$SERVER_IP
   only:
     - main
   needs:
