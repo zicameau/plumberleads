@@ -38,12 +38,12 @@ test:
     - mkdir -p app/services/mock  # Ensure mock services directory exists
     - echo "Running tests..."
   script:
-    - pytest -v tests/test_simple.py  # Run the simple test first
-    - pytest -v tests/ || echo "Some tests failed but continuing pipeline"
-    - echo "Test stage completed successfully"
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - pytest tests/ -v
   after_script:
     - echo "Test stage completed"
-  allow_failure: true  # Allow the test stage to fail without failing the pipeline
+  allow_failure: false  # This ensures the pipeline fails if tests fail
 
 # Build and push Docker image
 build:

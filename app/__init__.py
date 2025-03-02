@@ -24,7 +24,7 @@ load_dotenv()
 # Initialize mail
 mail = Mail()
 
-def create_app():
+def create_app(config_name=None):
     """Create and configure the Flask application."""
     app = Flask(__name__)
     CORS(app)  # Enable CORS
