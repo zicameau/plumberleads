@@ -1,6 +1,6 @@
 # app/routes/auth.py
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, g, session
-from app.services.auth_service import signup, login, logout, reset_password_request
+from app.services.auth_service import signup, login as auth_login, logout, reset_password_request
 from flask_mail import Message, Mail
 import os
 from app import mail
@@ -87,7 +87,7 @@ def login():
             return render_template('auth/login.html', email=email)
         
         # Attempt login
-        result = login(email, password)
+        result = auth_login(email, password)
         
         if result and result.get('session') and result.get('user'):
             # Store token and basic user info in session
@@ -176,7 +176,7 @@ def api_login():
             }), 400
         
         # Attempt login
-        result = login(data['email'], data['password'])
+        result = auth_login(data['email'], data['password'])
         
         if result and result.get('session') and result.get('user'):
             # Return token and basic user info
