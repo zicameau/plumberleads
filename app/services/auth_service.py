@@ -61,7 +61,8 @@ def login(email, password):
             
             return {"session": session, "user": user}
         except ValueError:
-            pass
+            # Handle invalid plumber ID format
+            return None
     
     # Invalid credentials
     return None
