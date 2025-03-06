@@ -119,3 +119,93 @@ class Plumber:
         # In a real implementation, this would query the database
         # For now, return an empty list
         return [] 
+
+    @classmethod
+    def count_all(cls):
+        """Count all plumbers in the database."""
+        logger.info("Counting all plumbers")
+        
+        try:
+            # For development/testing, return a mock count
+            # In a real implementation, this would query the database
+            return 12
+        except Exception as e:
+            logger.error(f"Error counting plumbers: {str(e)}", exc_info=True)
+            return 0
+
+    @classmethod
+    def get_recent(cls, limit=5):
+        """Retrieve recent plumbers."""
+        logger.info(f"Fetching {limit} recent plumbers")
+        
+        try:
+            # For development/testing, return mock plumbers
+            # In a real implementation, this would query the database
+            plumbers = []
+            for i in range(1, limit + 1):
+                plumbers.append(cls(
+                    id=f"plumber-{i}",
+                    user_id=f"user-{i}",
+                    company_name=f"Plumber Company {i}",
+                    contact_name=f"Contact {i}",
+                    email=f"plumber{i}@example.com",
+                    phone=f"555-987-{i:04d}",
+                    lead_credits=i * 5,
+                    is_active=i % 4 != 0,  # 75% active
+                    subscription_status="active" if i % 3 != 0 else "inactive"
+                ))
+            return plumbers
+        except Exception as e:
+            logger.error(f"Error fetching recent plumbers: {str(e)}", exc_info=True)
+            return []
+
+    @classmethod
+    def get_all(cls):
+        """Retrieve all plumbers."""
+        logger.info("Fetching all plumbers")
+        
+        try:
+            # For development/testing, return mock plumbers
+            # In a real implementation, this would query the database
+            plumbers = []
+            for i in range(1, 11):
+                plumbers.append(cls(
+                    id=f"plumber-{i}",
+                    user_id=f"user-{i}",
+                    company_name=f"Plumber Company {i}",
+                    contact_name=f"Contact {i}",
+                    email=f"plumber{i}@example.com",
+                    phone=f"555-987-{i:04d}",
+                    lead_credits=i * 5,
+                    is_active=i % 4 != 0,  # 75% active
+                    subscription_status="active" if i % 3 != 0 else "inactive"
+                ))
+            return plumbers
+        except Exception as e:
+            logger.error(f"Error fetching all plumbers: {str(e)}", exc_info=True)
+            return []
+
+    @classmethod
+    def filter(cls, status=None):
+        """Filter plumbers by criteria."""
+        logger.info(f"Filtering plumbers with status={status}")
+        
+        try:
+            # For development/testing, return filtered mock plumbers
+            # In a real implementation, this would query the database
+            all_plumbers = cls.get_all()
+            filtered_plumbers = []
+            
+            for plumber in all_plumbers:
+                # Apply status filter if provided
+                if status == 'active' and not plumber.is_active:
+                    continue
+                if status == 'inactive' and plumber.is_active:
+                    continue
+                
+                filtered_plumbers.append(plumber)
+            
+            return filtered_plumbers
+        except Exception as e:
+            logger.error(f"Error filtering plumbers: {str(e)}", exc_info=True)
+            return [] 

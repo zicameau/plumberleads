@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Admin Dashboard</h1>
+    
+    {% if error %}
+    <div class="alert alert-danger">
+        An error occurred while loading the dashboard. Please try again later.
+    </div>
+    {% else %}
+    
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Total Leads</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ lead_count }}</h5>
+                    <p class="card-text">Customer service requests</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Plumbers</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ plumber_count }}</h5>
+                    <p class="card-text">Registered service providers</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-header">Lead Claims</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ claim_count }}</h5>
+                    <p class="card-text">Total lead claims</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-header">Conversion Rate</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ conversion_rate }}%</h5>
+                    <p class="card-text">Leads claimed by plumbers</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">
+                    Recent Leads
+                    <a href="{{ url_for('admin.leads') }}" class="float-right">View All</a>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Service</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lead in recent_leads %}
+                            <tr>
+                                <td>{{ lead.customer_name }}</td>
+                                <td>{{ lead.service_needed }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if lead.status == 'new' %}badge-primary
+                                        {% elif lead.status == 'assigned' %}badge-info
+                                        {% elif lead.status == 'in_progress' %}badge-warning
+                                        {% elif lead.status == 'completed' %}badge-success
+                                        {% else %}badge-secondary{% endif %}">
+                                        {{ lead.status }}
+                                    </span>
+                                </td>
+                                <td>{{ lead.created_at.strftime('%Y-%m-%d') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">
+                    Recent Plumbers
+                    <a href="{{ url_for('admin.plumbers') }}" class="float-right">View All</a>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Contact</th>
+                                <th>Status</th>
+                                <th>Credits</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plumber in recent_plumbers %}
+                            <tr>
+                                <td>{{ plumber.company_name }}</td>
+                                <td>{{ plumber.contact_name }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if plumber.is_active %}badge-success
+                                        {% else %}badge-danger{% endif %}">
+                                        {{ 'Active' if plumber.is_active else 'Inactive' }}
+                                    </span>
+                                </td>
+                                <td>{{ plumber.lead_credits }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% endif %}
+</div>
+{% endblock %} 

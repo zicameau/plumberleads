@@ -194,6 +194,17 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         request_id = f"req-{datetime.utcnow().timestamp()}"
+        
+        # Skip authentication for login and registration routes
+        if request.endpoint and (
+            request.endpoint.startswith('auth.login') or 
+            request.endpoint.startswith('auth.register') or
+            request.endpoint.startswith('home.') or
+            request.endpoint == 'static'
+        ):
+            logger.info(f"[{request_id}] Skipping authentication for public route: {request.path}")
+            return f(*args, **kwargs)
+            
         token = None
         
         # Check for token in session
