@@ -1,9 +1,13 @@
 # app/routes/auth.py
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, g, session
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, g, session, current_app
 from app.services.auth_service import signup, login as auth_login, logout, reset_password_request
 from flask_mail import Message, Mail
 import os
 from app import mail
+import logging
+
+# Get the auth logger
+logger = logging.getLogger('auth')
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -16,11 +20,15 @@ def register_plumber():
         confirm_password = request.form.get('confirm_password')
         company_name = request.form.get('company_name')
         
+        logger.info(f"Plumber registration form submitted for {email}")
+        
         if not all([email, password, confirm_password, company_name]):
+            logger.warning(f"Incomplete plumber registration form for {email}")
             flash('All fields are required', 'error')
             return render_template('auth/register_plumber.html')
             
         if password != confirm_password:
+            logger.warning(f"Password mismatch in plumber registration for {email}")
             flash('Passwords do not match', 'error')
             return render_template('auth/register_plumber.html', form_data=request.form)
         
@@ -30,6 +38,7 @@ def register_plumber():
             'company_name': company_name
         }
         
+        logger.info(f"Attempting to create plumber account for {email}")
         user = signup(email, password, user_metadata)
         
         if user:
@@ -37,13 +46,16 @@ def register_plumber():
             session['registered_email'] = email
             session['registered_role'] = 'plumber'
             
+            logger.info(f"Plumber registration successful for {email}")
             flash('Registration successful! Please check your email to confirm your account.', 'success')
             return redirect(url_for('auth.registration_success'))
         else:
+            logger.warning(f"Plumber registration failed for {email}")
             flash('Registration failed. This email may already be registered.', 'error')
             return render_template('auth/register_plumber.html', form_data=request.form)
     
     # GET request - show registration form
+    logger.info("Plumber registration form requested")
     return render_template('auth/register_plumber.html')
 
 @auth_bp.route('/register/success', methods=['GET'])
@@ -67,26 +79,30 @@ def login():
     if 'token' in session:
         # Get role from metadata if available
         role = session.get('role')
+        user_id = session.get('user_id')
+        
+        logger.info(f"Already logged in user {user_id} with role {role} attempting to access login page")
         
         if role == 'plumber':
             return redirect(url_for('plumber.dashboard'))
         elif role == 'admin':
             return redirect(url_for('admin.dashboard'))
-        
-        # Default redirect if role not known
-        return redirect(url_for('customer.index'))
+        else:
+            return redirect(url_for('customer.index'))
     
     if request.method == 'POST':
-        # Get form data
         email = request.form.get('email')
         password = request.form.get('password')
         
-        # Validate inputs
+        logger.info(f"Login attempt for {email}")
+        
         if not email or not password:
+            logger.warning(f"Login attempt with missing credentials")
             flash('Email and password are required', 'error')
             return render_template('auth/login.html', email=email)
         
         # Attempt login
+        logger.info(f"Attempting login for {email}")
         result = auth_login(email, password)
         
         if result and result.get('session') and result.get('user'):
@@ -99,6 +115,8 @@ def login():
             role = user_metadata.get('role')
             session['role'] = role
             
+            logger.info(f"Login successful for {email} with role {role}")
+            
             # Redirect based on role
             if role == 'plumber':
                 return redirect(url_for('plumber.dashboard'))
@@ -107,27 +125,30 @@ def login():
             else:
                 return redirect(url_for('customer.index'))
         else:
+            logger.warning(f"Login failed for {email}")
             flash('Invalid email or password', 'error')
             return render_template('auth/login.html', email=email)
     
     # GET request - show login form
+    logger.info("Login form requested")
     return render_template('auth/login.html')
 
 @auth_bp.route('/logout', methods=['GET'])
 def logout_route():
-    """Logout route."""
-    # Get token from session
-    token = session.get('token')
+    """Logout and redirect to home page."""
+    user_id = session.get('user_id')
+    logger.info(f"Logout requested for user {user_id}")
     
-    if token:
-        # Call Supabase logout
+    if 'token' in session:
+        token = session['token']
         logout(token)
     
-    # Clear session data
+    # Clear session
     session.clear()
     
-    flash('You have been logged out', 'success')
-    return redirect(url_for('auth.login'))
+    logger.info(f"User {user_id} logged out successfully")
+    flash('You have been logged out successfully.', 'success')
+    return redirect(url_for('home.index'))
 
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():

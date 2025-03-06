@@ -3,17 +3,52 @@ import jwt
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import current_app, request, g, jsonify
+from flask import current_app, request, g, jsonify, session, flash, redirect, url_for
+from app.models.plumber import Plumber
 
-# Set up a logger for use outside app context
-logger = logging.getLogger(__name__)
+# Get the auth logger
+logger = logging.getLogger('auth')
 
 # Placeholder functions for auth service
-def signup(email, password, user_data=None):
+def signup(email, password, user_metadata=None):
     """Register a new user."""
-    # In a real implementation, this would create a user in Supabase Auth
-    logger.info(f"Signup attempt for {email}")
-    return {"user_id": "mock-user-id", "email": email}
+    logger.info(f"Signup attempt for {email} with role {user_metadata.get('role') if user_metadata else 'customer'}")
+    
+    try:
+        # In a real implementation, this would create a user in Supabase Auth
+        # For now, just return a mock user object
+        class MockUser:
+            def __init__(self, id, email, metadata):
+                self.id = id
+                self.email = email
+                self.user_metadata = metadata
+        
+        user_id = f"user-{datetime.utcnow().timestamp()}"
+        user = MockUser(user_id, email, user_metadata or {})
+        
+        # If this is a plumber signup, create the plumber record
+        if user_metadata and user_metadata.get('role') == 'plumber':
+            logger.info(f"Creating plumber record for new user {user_id}")
+            plumber_data = {
+                'user_id': user_id,
+                'company_name': user_metadata.get('company_name', 'New Plumbing Company'),
+                'email': email
+            }
+            
+            try:
+                plumber = Plumber.create(plumber_data)
+                if plumber:
+                    logger.info(f"Plumber record created successfully with ID {plumber.id}")
+                else:
+                    logger.error(f"Failed to create plumber record for user {user_id}")
+            except Exception as e:
+                logger.error(f"Error creating plumber record: {str(e)}", exc_info=True)
+        
+        logger.info(f"Signup successful for {email} with user ID {user_id}")
+        return user
+    except Exception as e:
+        logger.error(f"Signup failed for {email}: {str(e)}", exc_info=True)
+        return None
 
 def login(email, password):
     """Log in a user."""
@@ -37,14 +72,22 @@ def login(email, password):
         session = MockSession(token)
         user = MockUser("admin-user-id", email, {"role": "admin", "name": "Admin User"})
         
+        logger.info(f"Admin login successful for {email}")
         return {"session": session, "user": user}
     
-    # For plumber accounts
-    if email.startswith('plumber') and password == 'password123':
-        plumber_id = email.split('@')[0].replace('plumber', '')
-        try:
-            plumber_id = int(plumber_id)
-            # Create a mock session and user object
+    # For regular users, check credentials against database
+    # This is a simplified example - in production, use proper password hashing
+    try:
+        # Get user role from metadata or related tables
+        role = 'customer'  # Default role
+        
+        # Check if user is a plumber
+        plumber = Plumber.get_by_user_id(email)  # In real app, use actual user_id
+        if plumber:
+            logger.info(f"User {email} identified as plumber with ID {plumber.id}")
+            role = 'plumber'
+            
+            # Create session and user objects
             class MockSession:
                 def __init__(self, token):
                     self.access_token = token
@@ -55,29 +98,48 @@ def login(email, password):
                     self.email = email
                     self.user_metadata = metadata
                     
-            token = generate_token({"id": f"plumber-{plumber_id}", "email": email, "role": "plumber"})
+            token = generate_token({"id": f"plumber-{plumber.id}", "email": email, "role": role})
             session = MockSession(token)
-            user = MockUser(f"plumber-{plumber_id}", email, {"role": "plumber", "company_name": f"Plumber Company {plumber_id}"})
             
+            # Set metadata based on role
+            metadata = {"role": role, "company_name": plumber.company_name}
+            user = MockUser(f"plumber-{plumber.id}", email, metadata)
+            
+            logger.info(f"Plumber login successful for {email}")
             return {"session": session, "user": user}
-        except ValueError:
-            # Handle invalid plumber ID format
-            return None
+    except Exception as e:
+        logger.error(f"Error during login for {email}: {str(e)}", exc_info=True)
     
     # Invalid credentials
+    logger.warning(f"Failed login attempt for {email}")
     return None
 
 def logout(token):
-    """Log out a user."""
-    # In a real implementation, this would invalidate the token
-    logger.info("Logout attempt")
-    return {"success": True}
+    """Log out a user by invalidating their token."""
+    logger.info("Logout requested")
+    
+    try:
+        # Decode token to get user info for logging
+        payload = jwt.decode(
+            token, 
+            os.environ.get('SECRET_KEY', 'dev-secret-key'),
+            algorithms=['HS256']
+        )
+        user_id = payload.get('sub')
+        logger.info(f"User {user_id} logged out successfully")
+    except Exception as e:
+        logger.warning(f"Logout with invalid token: {str(e)}")
+    
+    # In a real implementation, this would invalidate the token in Supabase Auth
+    return True
 
 def reset_password_request(email):
     """Request a password reset."""
-    # In a real implementation, this would trigger a password reset email
     logger.info(f"Password reset requested for {email}")
-    return {"success": True}
+    
+    # In a real implementation, this would send a reset email via Supabase Auth
+    # For now, just return success
+    return True
 
 # Global variable to store Supabase client
 _supabase_client = None
@@ -98,21 +160,20 @@ def get_supabase_client():
         return {"url": "mock-url", "key": "mock-key"}
     return _supabase_client
 
-def generate_token(user_data):
-    """Generate a JWT token for a user."""
+def generate_token(payload, expires_delta=None):
+    """Generate a JWT token."""
+    now = datetime.utcnow()
+    if not expires_delta:
+        expires_delta = timedelta(days=1)
+    payload_copy = payload.copy()
+    exp = now + expires_delta
+    payload_copy.update({"exp": exp, "iat": now, "sub": payload.get("id", "")})
+    
     secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    payload = {
-        'exp': datetime.utcnow() + timedelta(days=1),
-        'iat': datetime.utcnow(),
-        'sub': user_data.get('id'),
-        'email': user_data.get('email'),
-        'role': user_data.get('role', 'plumber')
-    }
-    return jwt.encode(
-        payload,
-        secret_key,
-        algorithm='HS256'
-    )
+    token = jwt.encode(payload_copy, secret_key, algorithm='HS256')
+    
+    logger.info(f"Generated token for user {payload.get('id')} with role {payload.get('role')}")
+    return token
 
 def decode_token(token):
     """Decode a JWT token."""
@@ -132,29 +193,95 @@ def token_required(f):
     """Decorator to require a valid token for a route."""
     @wraps(f)
     def decorated(*args, **kwargs):
+        request_id = f"req-{datetime.utcnow().timestamp()}"
         token = None
         
-        # Get token from Authorization header
+        # Check for token in session
+        if 'token' in session:
+            token = session['token']
+        
+        # Check for token in Authorization header
         auth_header = request.headers.get('Authorization')
         if auth_header and auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
         
-        # If no token, return 401
         if not token:
-            return jsonify({'message': 'Token is missing'}), 401
+            logger.warning(f"[{request_id}] Token missing for protected route: {request.path}")
+            
+            # For API routes, return JSON response
+            if request.path.startswith('/api/'):
+                return jsonify({'message': 'Authentication required'}), 401
+            
+            # For web routes, redirect to login
+            flash('Please log in to access this page', 'warning')
+            return redirect(url_for('auth.login'))
         
-        # Decode token
-        payload = decode_token(token)
-        if not payload:
-            return jsonify({'message': 'Token is invalid or expired'}), 401
+        try:
+            # Decode token
+            payload = jwt.decode(
+                token, 
+                os.environ.get('SECRET_KEY', 'dev-secret-key'),
+                algorithms=['HS256']
+            )
+            
+            # Set user info in Flask g object for access in the route
+            g.user = {
+                'id': payload['sub'],
+                'email': payload.get('email'),
+                'role': payload.get('role')
+            }
+            
+            logger.info(f"[{request_id}] Successfully authenticated user {g.user['id']} with role {g.user.get('role')}")
+            return f(*args, **kwargs)
+        except jwt.ExpiredSignatureError:
+            logger.warning(f"[{request_id}] Expired token for request to {request.path}")
+            
+            # Clear session
+            session.clear()
+            
+            # For API routes, return JSON response
+            if request.path.startswith('/api/'):
+                return jsonify({'message': 'Token expired'}), 401
+            
+            # For web routes, redirect to login
+            flash('Your session has expired. Please log in again.', 'warning')
+            return redirect(url_for('auth.login'))
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"[{request_id}] Invalid token for request to {request.path}: {str(e)}")
+            
+            # Clear session
+            session.clear()
+            
+            # For API routes, return JSON response
+            if request.path.startswith('/api/'):
+                return jsonify({'message': 'Invalid token'}), 401
+            
+            # For web routes, redirect to login
+            flash('Authentication error. Please log in again.', 'warning')
+            return redirect(url_for('auth.login'))
+        except Exception as e:
+            logger.error(f"[{request_id}] Unexpected error during authentication: {str(e)}", exc_info=True)
+            return jsonify({'message': 'Authentication error'}), 500
+    
+    return decorated
+
+def admin_required(f):
+    """Decorator to require an admin role for a route."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        request_id = f"req-{datetime.utcnow().timestamp()}"
         
-        # Set user in g
-        g.user = {
-            'id': payload.get('sub'),
-            'email': payload.get('email'),
-            'role': payload.get('role')
-        }
+        # Check if user is set in g
+        if not hasattr(g, 'user'):
+            logger.warning(f"[{request_id}] Admin check failed: No authenticated user")
+            return jsonify({'message': 'Authentication required'}), 401
         
+        # Check if user has admin role
+        if g.user.get('role') != 'admin':
+            logger.warning(f"[{request_id}] Access denied: User {g.user.get('id')} with role {g.user.get('role')} attempted to access admin route {request.path}")
+            return jsonify({'message': 'Admin role required'}), 403
+        
+        logger.info(f"[{request_id}] Admin access granted to {g.user.get('id')} for {request.path}")
         return f(*args, **kwargs)
     
     return decorated
@@ -163,30 +290,19 @@ def plumber_required(f):
     """Decorator to require a plumber role for a route."""
     @wraps(f)
     def decorated(*args, **kwargs):
+        request_id = f"req-{datetime.utcnow().timestamp()}"
+        
         # Check if user is set in g
         if not hasattr(g, 'user'):
+            logger.warning(f"[{request_id}] Plumber check failed: No authenticated user")
             return jsonify({'message': 'Authentication required'}), 401
         
         # Check if user has plumber role
         if g.user.get('role') != 'plumber':
+            logger.warning(f"[{request_id}] Access denied: User {g.user.get('id')} with role {g.user.get('role')} attempted to access plumber route {request.path}")
             return jsonify({'message': 'Plumber role required'}), 403
         
-        return f(*args, **kwargs)
-    
-    return decorated
-
-def admin_required(f):
-    """Decorator to require an admin role for a route."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        # Check if user is set in g
-        if not hasattr(g, 'user'):
-            return jsonify({'message': 'Authentication required'}), 401
-        
-        # Check if user has admin role
-        if g.user.get('role') != 'admin':
-            return jsonify({'message': 'Admin role required'}), 403
-        
+        logger.info(f"[{request_id}] Plumber access granted to {g.user.get('id')} for {request.path}")
         return f(*args, **kwargs)
     
     return decorated 

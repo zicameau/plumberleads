@@ -5,6 +5,10 @@ from app.models.lead import Lead
 from app.models.plumber import Plumber
 from app.models.lead_claim import LeadClaim
 import logging
+from datetime import datetime, timedelta
+
+# Get the app logger
+logger = logging.getLogger('app')
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -12,88 +16,119 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 @token_required
 @admin_required
 def dashboard():
-    """Admin dashboard showing overview and stats."""
+    """Admin dashboard showing system overview."""
+    user_id = g.user.get('id')
+    logger.info(f"Admin {user_id} accessing dashboard")
+    
     try:
-        # Get basic stats
-        from app.services.lead_service import get_lead_statistics
+        # Get counts for dashboard
+        lead_count = Lead.count_all()
+        plumber_count = Plumber.count_all()
+        claim_count = LeadClaim.count_all()
         
-        # Get counts from database
-        lead_count = Lead.count()
-        plumber_count = Plumber.count()
-        active_plumber_count = Plumber.count({"subscription_status": "active"})
-        claimed_lead_count = Lead.count({"status": "claimed"})
-        completed_lead_count = Lead.count({"status": "completed"})
-        
-        # Calculate percentage of claimed leads
-        claimed_percentage = 0
-        if lead_count > 0:
-            claimed_percentage = (claimed_lead_count / lead_count) * 100
-        
-        # Calculate completion rate
-        completion_rate = 0
-        if claimed_lead_count > 0:
-            completion_rate = (completed_lead_count / claimed_lead_count) * 100
-            
         # Get recent leads
         recent_leads = Lead.get_recent(limit=5)
         
-        # Get recent plumber signups
+        # Get recent plumbers
         recent_plumbers = Plumber.get_recent(limit=5)
+        
+        # Get recent claims
+        recent_claims = LeadClaim.get_recent(limit=5)
+        
+        # Calculate conversion rate
+        conversion_rate = 0
+        if lead_count > 0:
+            # Count leads with at least one claim
+            claimed_lead_count = LeadClaim.count_unique_leads()
+            conversion_rate = round((claimed_lead_count / lead_count) * 100, 1)
+        
+        logger.info(f"Admin dashboard loaded with {lead_count} leads, {plumber_count} plumbers, {claim_count} claims")
         
         return render_template('admin/dashboard.html',
                              lead_count=lead_count,
                              plumber_count=plumber_count,
-                             active_plumber_count=active_plumber_count,
-                             claimed_percentage=claimed_percentage,
-                             completion_rate=completion_rate,
+                             claim_count=claim_count,
+                             conversion_rate=conversion_rate,
                              recent_leads=recent_leads,
-                             recent_plumbers=recent_plumbers)
-    
+                             recent_plumbers=recent_plumbers,
+                             recent_claims=recent_claims)
     except Exception as e:
-        current_app.logger.error(f"Error in admin dashboard: {str(e)}")
+        logger.error(f"Error in admin dashboard for user {user_id}: {str(e)}", exc_info=True)
         flash('An error occurred while loading the dashboard.', 'error')
         return render_template('admin/dashboard.html', error=True)
 
 @admin_bp.route('/leads', methods=['GET'])
 @token_required
 @admin_required
-def manage_leads():
-    """View and manage all leads."""
+def leads():
+    """Admin page for managing leads."""
+    user_id = g.user.get('id')
+    logger.info(f"Admin {user_id} accessing leads page")
+    
     try:
         # Get filter parameters
-        status_filter = request.args.get('status', '')
-        page = int(request.args.get('page', 1))
-        per_page = 20
-        offset = (page - 1) * per_page
+        status = request.args.get('status', 'all')
+        date_range = request.args.get('date_range', '7d')
         
-        # Get leads based on filter
-        if status_filter and status_filter != 'all':
-            leads = Lead.find_by_status(
-                status=status_filter,
-                limit=per_page,
-                offset=offset
-            )
-            total_count = Lead.count({"status": status_filter})
+        # Calculate date range
+        end_date = datetime.utcnow()
+        if date_range == '1d':
+            start_date = end_date - timedelta(days=1)
+        elif date_range == '7d':
+            start_date = end_date - timedelta(days=7)
+        elif date_range == '30d':
+            start_date = end_date - timedelta(days=30)
+        elif date_range == '90d':
+            start_date = end_date - timedelta(days=90)
         else:
-            leads = Lead.get_all(
-                limit=per_page,
-                offset=offset
-            )
-            total_count = Lead.count()
+            start_date = None
         
-        # Calculate total pages
-        total_pages = (total_count + per_page - 1) // per_page
+        # Get leads based on filters
+        if status == 'all' and start_date is None:
+            leads = Lead.get_all()
+        else:
+            leads = Lead.filter(status=None if status == 'all' else status, 
+                              start_date=start_date, 
+                              end_date=end_date)
+        
+        logger.info(f"Admin {user_id} retrieved {len(leads)} leads with filters: status={status}, date_range={date_range}")
         
         return render_template('admin/leads.html',
                              leads=leads,
-                             page=page,
-                             total_pages=total_pages,
-                             status_filter=status_filter)
-    
+                             status=status,
+                             date_range=date_range)
     except Exception as e:
-        current_app.logger.error(f"Error in manage_leads: {str(e)}")
-        flash('An error occurred while loading leads.', 'error')
+        logger.error(f"Error in admin leads page for user {user_id}: {str(e)}", exc_info=True)
+        flash('An error occurred while loading the leads.', 'error')
         return render_template('admin/leads.html', error=True)
+
+@admin_bp.route('/plumbers', methods=['GET'])
+@token_required
+@admin_required
+def plumbers():
+    """Admin page for managing plumbers."""
+    user_id = g.user.get('id')
+    logger.info(f"Admin {user_id} accessing plumbers page")
+    
+    try:
+        # Get filter parameters
+        status = request.args.get('status', 'all')
+        
+        # Get plumbers based on filters
+        if status == 'all':
+            plumbers = Plumber.get_all()
+        else:
+            plumbers = Plumber.filter(status=status)
+        
+        logger.info(f"Admin {user_id} retrieved {len(plumbers)} plumbers with filter: status={status}")
+        
+        return render_template('admin/plumbers.html',
+                             plumbers=plumbers,
+                             status=status)
+    except Exception as e:
+        logger.error(f"Error in admin plumbers page for user {user_id}: {str(e)}", exc_info=True)
+        flash('An error occurred while loading the plumbers.', 'error')
+        return render_template('admin/plumbers.html', error=True)
 
 @admin_bp.route('/leads/<lead_id>', methods=['GET'])
 @token_required
@@ -129,47 +164,6 @@ def view_lead(lead_id):
         current_app.logger.error(f"Error in view_lead: {str(e)}")
         flash('An error occurred while loading lead details.', 'error')
         return redirect(url_for('admin.manage_leads'))
-
-@admin_bp.route('/plumbers', methods=['GET'])
-@token_required
-@admin_required
-def manage_plumbers():
-    """View and manage all plumbers."""
-    try:
-        # Get filter parameters
-        subscription_filter = request.args.get('subscription', '')
-        page = int(request.args.get('page', 1))
-        per_page = 20
-        offset = (page - 1) * per_page
-        
-        # Get plumbers based on filter
-        if subscription_filter and subscription_filter != 'all':
-            plumbers = Plumber.find_by_subscription_status(
-                status=subscription_filter,
-                limit=per_page,
-                offset=offset
-            )
-            total_count = Plumber.count({"subscription_status": subscription_filter})
-        else:
-            plumbers = Plumber.get_all(
-                limit=per_page,
-                offset=offset
-            )
-            total_count = Plumber.count()
-        
-        # Calculate total pages
-        total_pages = (total_count + per_page - 1) // per_page
-        
-        return render_template('admin/plumbers.html',
-                             plumbers=plumbers,
-                             page=page,
-                             total_pages=total_pages,
-                             subscription_filter=subscription_filter)
-    
-    except Exception as e:
-        current_app.logger.error(f"Error in manage_plumbers: {str(e)}")
-        flash('An error occurred while loading plumbers.', 'error')
-        return render_template('admin/plumbers.html', error=True)
 
 @admin_bp.route('/plumbers/<plumber_id>', methods=['GET'])
 @token_required

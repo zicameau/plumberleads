@@ -1,5 +1,10 @@
 from datetime import datetime
 import uuid
+import logging
+import json
+
+# Get the database logger
+logger = logging.getLogger('database')
 
 class Plumber:
     """
@@ -39,18 +44,74 @@ class Plumber:
         self.updated_at = updated_at or datetime.utcnow()
     
     @classmethod
+    def create(cls, plumber_data):
+        """Create a new plumber profile in the database."""
+        logger.info(f"Creating new plumber: {plumber_data.get('company_name')} for user {plumber_data.get('user_id')}")
+        
+        try:
+            # In a real implementation, this would insert into the database
+            # For now, just create and return a Plumber instance
+            plumber = cls(**plumber_data)
+            logger.info(f"Successfully created plumber with ID {plumber.id}")
+            return plumber
+        except Exception as e:
+            logger.error(f"Failed to create plumber: {str(e)}", exc_info=True)
+            return None
+    
+    @classmethod
     def get_by_id(cls, plumber_id):
         """Retrieve a plumber by ID."""
-        # In a real implementation, this would query the database
-        # For now, return None
-        return None
+        logger.info(f"Fetching plumber with ID {plumber_id}")
+        
+        try:
+            # In a real implementation, this would query the database
+            # For now, return None
+            logger.info(f"Plumber with ID {plumber_id} not found")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching plumber with ID {plumber_id}: {str(e)}", exc_info=True)
+            return None
     
     @classmethod
     def get_by_user_id(cls, user_id):
-        """Retrieve a plumber by user ID."""
-        # In a real implementation, this would query the database
-        # For now, return None
-        return None
+        """Retrieve a plumber profile by user ID."""
+        logger.info(f"Fetching plumber by user ID {user_id}")
+        
+        try:
+            # In a real implementation, this would query the database
+            # For now, return None
+            logger.info(f"Plumber with user ID {user_id} not found")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching plumber with user ID {user_id}: {str(e)}", exc_info=True)
+            return None
+    
+    def save(self):
+        """Update plumber profile."""
+        logger.info(f"Updating plumber profile for ID {self.id}")
+        
+        try:
+            # In a real implementation, this would update the database
+            self.updated_at = datetime.utcnow()
+            logger.info(f"Successfully updated plumber profile for ID {self.id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update plumber profile for ID {self.id}: {str(e)}", exc_info=True)
+            return False
+    
+    def add_lead_credits(self, count):
+        """Add lead credits to plumber account."""
+        logger.info(f"Adding {count} lead credits to plumber {self.id}")
+        
+        try:
+            previous_credits = self.lead_credits
+            self.lead_credits += count
+            self.save()
+            logger.info(f"Updated lead credits for plumber {self.id} from {previous_credits} to {self.lead_credits}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add lead credits to plumber {self.id}: {str(e)}", exc_info=True)
+            return False
     
     @classmethod
     def find_by_location(cls, latitude, longitude, radius_miles, services=None):

@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_mail import Mail
+from app.utils.logging_config import setup_logging
 
 # Try to import SQLAlchemy, but don't fail if it's not available
 try:
@@ -40,6 +41,10 @@ def create_app(config_name=None):
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         db.init_app(app)
         migrate.init_app(app, db)
+    
+    # Set up logging
+    loggers = setup_logging(app)
+    app.loggers = loggers
     
     # Register blueprints
     from app.routes.home import home_bp
