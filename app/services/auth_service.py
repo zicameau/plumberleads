@@ -20,10 +20,51 @@ def login(email, password):
     # In a real implementation, this would authenticate with Supabase Auth
     logger.info(f"Login attempt for {email}")
     
-    # Generate a mock token
-    token = generate_token({"id": "mock-user-id", "email": email, "role": "plumber"})
+    # For development/testing, check for admin credentials
+    if email == 'admin@example.com' and password == 'admin123':
+        # Create a mock session and user object
+        class MockSession:
+            def __init__(self, token):
+                self.access_token = token
+                
+        class MockUser:
+            def __init__(self, id, email, metadata):
+                self.id = id
+                self.email = email
+                self.user_metadata = metadata
+                
+        token = generate_token({"id": "admin-user-id", "email": email, "role": "admin"})
+        session = MockSession(token)
+        user = MockUser("admin-user-id", email, {"role": "admin", "name": "Admin User"})
+        
+        return {"session": session, "user": user}
     
-    return {"user_id": "mock-user-id", "email": email, "token": token}
+    # For plumber accounts
+    if email.startswith('plumber') and password == 'password123':
+        plumber_id = email.split('@')[0].replace('plumber', '')
+        try:
+            plumber_id = int(plumber_id)
+            # Create a mock session and user object
+            class MockSession:
+                def __init__(self, token):
+                    self.access_token = token
+                    
+            class MockUser:
+                def __init__(self, id, email, metadata):
+                    self.id = id
+                    self.email = email
+                    self.user_metadata = metadata
+                    
+            token = generate_token({"id": f"plumber-{plumber_id}", "email": email, "role": "plumber"})
+            session = MockSession(token)
+            user = MockUser(f"plumber-{plumber_id}", email, {"role": "plumber", "company_name": f"Plumber Company {plumber_id}"})
+            
+            return {"session": session, "user": user}
+        except ValueError:
+            pass
+    
+    # Invalid credentials
+    return None
 
 def logout(token):
     """Log out a user."""
