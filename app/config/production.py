@@ -38,4 +38,9 @@ class ProductionConfig:
     # Business Settings
     APP_NAME = os.getenv('APP_NAME', 'Plumber Leads')
     LEAD_RADIUS_MILES = int(os.getenv('LEAD_RADIUS_MILES', 25))
-    LEAD_PRICE = float(os.getenv('LEAD_PRICE', 10.00)) 
+    LEAD_PRICE = float(os.getenv('LEAD_PRICE', 10.00))
+    
+    # HTTPS settings
+    PREFERRED_URL_SCHEME = 'https'
+    SESSION_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = True 

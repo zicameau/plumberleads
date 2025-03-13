@@ -1,6 +1,6 @@
 # app/__init__.py
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_mail import Mail
@@ -29,6 +29,19 @@ def create_app(config_name=None):
     """Create and configure the Flask application."""
     app = Flask(__name__)
     CORS(app)  # Enable CORS
+    
+    # Add HTTPS configuration
+    if app.config.get('PREFERRED_URL_SCHEME') == 'https':
+        app.config['SESSION_COOKIE_SECURE'] = True
+        app.config['REMEMBER_COOKIE_SECURE'] = True
+    
+    # Optional: Redirect all HTTP traffic to HTTPS
+    if not app.debug and not app.testing:
+        @app.before_request
+        def before_request():
+            if not request.is_secure:
+                url = request.url.replace('http://', 'https://', 1)
+                return redirect(url, code=301)
     
     # Load configuration
     if config_name is None:
