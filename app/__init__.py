@@ -88,6 +88,6 @@ def create_app(config_name=None):
     
     @app.route('/health')
     def health_check():
-        return {'status': 'ok'}
+        return {'status': 'healthy'}
     
     return app

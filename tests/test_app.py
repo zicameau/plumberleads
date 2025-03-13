@@ -37,7 +37,7 @@ def test_login_page(client):
 
 def test_register_page(client):
     """Test the register page."""
-    response = client.get('/auth/register')
+    response = client.get('/auth/register/plumber')
     assert response.status_code == 200
 
 def test_health_check(client):
