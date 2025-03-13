@@ -74,7 +74,7 @@ def create_app(config_name=None):
     except ImportError as e:
         print(f"Warning: Could not import admin blueprint: {e}")
     
-    # Create Supabase client
+    # Initialize Supabase with configuration
     from app.services.auth_service import init_supabase
     init_supabase(
         app.config['SUPABASE_URL'],

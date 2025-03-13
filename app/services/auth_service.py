@@ -5,50 +5,39 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import current_app, request, g, jsonify, session, flash, redirect, url_for
 from app.models.plumber import Plumber
+from supabase import create_client, Client
 
 # Get the auth logger
 logger = logging.getLogger('auth')
 
 # Placeholder functions for auth service
 def signup(email, password, user_metadata=None):
-    """Register a new user."""
+    """Register a new user using Supabase Auth."""
     logger.info(f"Signup attempt for {email} with role {user_metadata.get('role') if user_metadata else 'customer'}")
     
     try:
-        # In a real implementation, this would create a user in Supabase Auth
-        # For now, just return a mock user object
-        class MockUser:
-            def __init__(self, id, email, metadata):
-                self.id = id
-                self.email = email
-                self.user_metadata = metadata
+        # Get Supabase client
+        supabase = get_supabase()
         
-        user_id = f"user-{datetime.utcnow().timestamp()}"
-        user = MockUser(user_id, email, user_metadata or {})
-        
-        # If this is a plumber signup, create the plumber record
-        if user_metadata and user_metadata.get('role') == 'plumber':
-            logger.info(f"Creating plumber record for new user {user_id}")
-            plumber_data = {
-                'user_id': user_id,
-                'company_name': user_metadata.get('company_name', 'New Plumbing Company'),
-                'email': email
+        # Create user in Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": email,
+            "password": password,
+            "options": {
+                "data": user_metadata  # This will be stored in user metadata
             }
-            
-            try:
-                plumber = Plumber.create(plumber_data)
-                if plumber:
-                    logger.info(f"Plumber record created successfully with ID {plumber.id}")
-                else:
-                    logger.error(f"Failed to create plumber record for user {user_id}")
-            except Exception as e:
-                logger.error(f"Error creating plumber record: {str(e)}", exc_info=True)
+        })
         
-        logger.info(f"Signup successful for {email} with user ID {user_id}")
-        return user
+        if auth_response.user:
+            logger.info(f"User {email} registered successfully with Supabase Auth")
+            return auth_response.user
+        else:
+            logger.error(f"Failed to register user {email} with Supabase Auth")
+            return None
+            
     except Exception as e:
-        logger.error(f"Signup failed for {email}: {str(e)}", exc_info=True)
-        return None
+        logger.error(f"Error during signup for {email}: {str(e)}", exc_info=True)
+        raise
 
 def login(email, password):
     """Log in a user."""
@@ -147,17 +136,18 @@ _supabase_client = None
 def init_supabase(url, key):
     """Initialize the Supabase client."""
     global _supabase_client
-    # In a real implementation, this would initialize the Supabase client
-    logger.info(f"Initializing Supabase with URL: {url}")
-    _supabase_client = {"url": url, "key": key}
-    return _supabase_client
+    try:
+        _supabase_client = create_client(url, key)
+        logger.info("Supabase client initialized successfully")
+        return _supabase_client
+    except Exception as e:
+        logger.error(f"Failed to initialize Supabase client: {str(e)}", exc_info=True)
+        raise
 
-def get_supabase_client():
-    """Get the Supabase client."""
-    global _supabase_client
+def get_supabase():
+    """Get the Supabase client instance."""
     if not _supabase_client:
-        # If not initialized, return a mock client
-        return {"url": "mock-url", "key": "mock-key"}
+        raise RuntimeError("Supabase client not initialized")
     return _supabase_client
 
 def generate_token(payload, expires_delta=None):

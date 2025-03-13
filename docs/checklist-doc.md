@@ -152,5 +152,13 @@ This document tracks the progress of the Plumber Lead Generation Website impleme
 - [ ] ROI calculator for plumbers
 - [ ] Heatmaps for geographic demand
 
+### High Priority (Next Sprint)
+
+### Authentication & Security
+- [ ] Implement actual Supabase authentication (currently using mocks)
+- [ ] Set up Supabase email templates
+- [ ] Configure email confirmation flow
+- [ ] Test email delivery
+
 ---
 Last Updated: March 1, 2025
