@@ -7,6 +7,7 @@ logger = logging.getLogger('app')
 home_bp = Blueprint('home', __name__)
 
 @home_bp.route('/')
+@home_bp.route('/index')
 def index():
     """Home page."""
     logger.info("Home page accessed")

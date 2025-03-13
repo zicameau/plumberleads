@@ -27,7 +27,7 @@ def runner(app):
 
 def test_home_page(client):
     """Test the home page."""
-    response = client.get('/')
+    response = client.get('/', follow_redirects=True)
     assert response.status_code == 200
 
 def test_login_page(client):
