@@ -6,6 +6,7 @@ from functools import wraps
 from flask import current_app, request, g, jsonify, session, flash, redirect, url_for
 from app.models.plumber import Plumber
 from supabase import create_client, Client
+from .mock.supabase_mock import SupabaseMock
 
 # Get the auth logger
 logger = logging.getLogger('auth')
@@ -136,6 +137,13 @@ _supabase_client = None
 def init_supabase(url, key):
     """Initialize the Supabase client."""
     global _supabase_client
+    
+    # Use mock client for testing
+    if current_app.config['TESTING']:
+        logger.info("Using mock Supabase client for testing")
+        _supabase_client = SupabaseMock()
+        return _supabase_client
+        
     try:
         _supabase_client = create_client(url, key)
         logger.info("Supabase client initialized successfully")

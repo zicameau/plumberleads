@@ -24,8 +24,8 @@ class TestingConfig:
     WTF_CSRF_ENABLED = False
     
     # Supabase mock settings
-    SUPABASE_URL = 'http://mock-supabase-url'
-    SUPABASE_KEY = 'mock-supabase-key'
+    SUPABASE_URL = "http://mock-supabase-url"
+    SUPABASE_KEY = "mock-supabase-key"
     
     # Stripe mock settings
     STRIPE_API_KEY = 'sk_test_mock_key'
@@ -43,4 +43,6 @@ class TestingConfig:
     # Twilio mock settings
     TWILIO_ACCOUNT_SID = 'mock_account_sid'
     TWILIO_AUTH_TOKEN = 'mock_auth_token'
-    TWILIO_PHONE_NUMBER = '+15555555555' 
+    TWILIO_PHONE_NUMBER = '+15555555555'
+    
+    # Add other test configuration as needed 
