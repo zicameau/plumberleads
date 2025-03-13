@@ -9,10 +9,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../a
 @pytest.fixture
 def app():
     """Create and configure a Flask app for testing."""
-    # Create the app with testing configuration
     app = create_app('testing')
     
-    # Set up application context
+    # Create an application context
     with app.app_context():
         yield app
 
@@ -20,6 +19,11 @@ def app():
 def client(app):
     """Create a test client."""
     return app.test_client()
+
+@pytest.fixture
+def runner(app):
+    """Create a CLI runner."""
+    return app.test_cli_runner()
 
 def test_home_page(client):
     """Test the home page."""

@@ -78,7 +78,8 @@ def create_app(config_name=None):
     from app.services.auth_service import init_supabase
     init_supabase(
         app.config['SUPABASE_URL'],
-        app.config['SUPABASE_KEY']
+        app.config['SUPABASE_KEY'],
+        testing=app.config.get('TESTING', False)
     )
     
     # Initialize Stripe

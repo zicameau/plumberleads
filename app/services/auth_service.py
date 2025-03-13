@@ -134,12 +134,12 @@ def reset_password_request(email):
 # Global variable to store Supabase client
 _supabase_client = None
 
-def init_supabase(url, key):
+def init_supabase(url, key, testing=False):
     """Initialize the Supabase client."""
     global _supabase_client
     
     # Use mock client for testing
-    if current_app.config['TESTING']:
+    if testing:
         logger.info("Using mock Supabase client for testing")
         _supabase_client = SupabaseMock()
         return _supabase_client

@@ -4,7 +4,7 @@ class TestingConfig:
     """Testing configuration."""
     TESTING = True
     DEBUG = True
-    SECRET_KEY = 'test-key'
+    SECRET_KEY = 'test-secret-key'
     SERVER_NAME = None  # Changed from 'localhost.localdomain' to avoid binding issues
     
     # Use SQLite for testing

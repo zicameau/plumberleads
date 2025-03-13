@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # Import fixtures that should be available to all tests
 from tests.test_app import app, client 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_supabase():
-    """Provide a mock Supabase client for testing."""
+    """Automatically use mock Supabase for all tests."""
     return SupabaseMock() 
