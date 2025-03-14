@@ -2,13 +2,17 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+load_dotenv('.env.production')
 
 class ProductionConfig:
     """Production configuration."""
     DEBUG = False
     TESTING = False
     SECRET_KEY = os.getenv('SECRET_KEY')
+    
+    # Database Configuration
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Database
     SUPABASE_URL = os.getenv('SUPABASE_URL')

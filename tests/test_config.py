@@ -1,6 +1,7 @@
 import os
 from app import create_app
 
+
 def test_production_config():
     """Test production configuration"""
     app = create_app('production')

@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+load_dotenv('.env.local')
 
 class DevelopmentConfig:
     """Development configuration."""
@@ -13,6 +13,10 @@ class DevelopmentConfig:
     # Database
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+
+    # Use SQLite for testing
+    SQLALCHEMY_DATABASE_URI = os.getenv('SQLALCHEMY_DATABASE_URI')
+    SQLALCHEMY_TRACK_MODIFICATIONS = os.getenv('SQLALCHEMY_TRACK_MODIFICATIONS')
     
     # Stripe (use test keys for development)
     STRIPE_API_KEY = os.getenv('STRIPE_TEST_API_KEY')
@@ -39,3 +43,8 @@ class DevelopmentConfig:
     APP_NAME = os.getenv('APP_NAME', 'Plumber Leads (Development)')
     LEAD_RADIUS_MILES = int(os.getenv('LEAD_RADIUS_MILES', 25))
     LEAD_PRICE = float(os.getenv('LEAD_PRICE', 10.00)) 
+
+    # HTTPS settings
+    PREFERRED_URL_SCHEME = 'https'
+    SESSION_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = True 

@@ -1,6 +1,6 @@
 # app/__init__.py
 import os
-from flask import Flask, request, jsonify, redirect
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_mail import Mail
@@ -27,27 +27,29 @@ mail = Mail()
 
 def create_app(config_name=None):
     """Create and configure the Flask application."""
+    print(f"\nCreating app from: {__file__}")
+    
     app = Flask(__name__)
     CORS(app)  # Enable CORS
     
-    # Add HTTPS configuration
-    if app.config.get('PREFERRED_URL_SCHEME') == 'https':
-        app.config['SESSION_COOKIE_SECURE'] = True
-        app.config['REMEMBER_COOKIE_SECURE'] = True
-    
-    # Optional: Redirect all HTTP traffic to HTTPS
-    if not app.debug and not app.testing:
-        @app.before_request
-        def before_request():
-            if not request.is_secure:
-                url = request.url.replace('http://', 'https://', 1)
-                return redirect(url, code=301)
-    
     # Load configuration
     if config_name is None:
-        config_name = os.getenv('FLASK_ENV', 'development')
-    app.config.from_object(f'app.config.{config_name.capitalize()}Config')
-    
+        config_name = os.getenv('FLASK_ENV', 'production')
+
+        # Load appropriate configuration
+    if config_name == 'production':
+        from app.config.production import ProductionConfig
+        app.config.from_object(ProductionConfig)
+    elif config_name == 'development':
+        from app.config.development import DevelopmentConfig
+        app.config.from_object(DevelopmentConfig)
+    elif config_name == 'testing':
+        from app.config.testing import TestingConfig
+        app.config.from_object(TestingConfig)
+    else:
+        from app.config.local import LocalConfig
+        app.config.from_object(LocalConfig)
+
     # Initialize extensions if available
     if has_sqlalchemy:
         app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
