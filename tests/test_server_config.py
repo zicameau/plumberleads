@@ -78,14 +78,9 @@ def test_error_handling():
         response = client.get('/nonexistent-page')
         assert response.status_code == 404
         
-        # Test 500 - temporarily disable testing mode to catch the exception
-        app.testing = False
-        try:
-            response = client.get('/test-500')
-            assert response.status_code == 500
-        finally:
-            # Restore testing mode
-            app.testing = True
+        # Test 500 - use catch_exceptions=False to get the response
+        response = client.get('/test-500', catch_exceptions=False)
+        assert response.status_code == 500
 
 def test_middleware_chain():
     """Test that middleware is properly configured"""

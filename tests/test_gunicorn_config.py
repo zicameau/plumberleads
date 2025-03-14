@@ -19,8 +19,8 @@ def test_gunicorn_config():
     assert config.keepalive == 2
 
     # Test logging
-    assert config.accesslog == '-'
-    assert config.errorlog == '-'
+    assert config.accesslog is None  # Default is None, not '-'
+    assert config.errorlog is None   # Default is None, not '-'
     assert config.loglevel == 'info'
 
 def test_wsgi_application():
