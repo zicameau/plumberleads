@@ -2,6 +2,10 @@ import socket
 import pytest
 from flask import url_for
 from app import create_app
+from werkzeug.exceptions import HTTPException
+import threading
+import requests
+import time
 
 def test_app_initialization():
     """Test that the Flask app initializes correctly"""
@@ -66,28 +70,38 @@ def test_route_registration():
         assert url_for('auth.register_plumber') is not None
 
 def test_error_handling():
-    """Test error handling for common scenarios"""
+    """Test error handling using a running server"""
     app = create_app('testing')
     
+    # Create a route that will trigger a 500 error
     @app.route('/test-500')
     def trigger_error():
         raise Exception('Test error')
-
-    @app.errorhandler(Exception)
-    def handle_exception(e):
-        # Don't handle HTTP exceptions like 404/NotFound
-        if isinstance(e, werkzeug.exceptions.HTTPException):
-            return e  # Let Flask handle HTTP exceptions normally
-        return "Error occurred", 500
-
-    with app.test_client() as client:
+    
+    # Start the server in a separate thread
+    server_thread = threading.Thread(target=app.run, kwargs={
+        'host': 'localhost',
+        'port': 5000,
+        'debug': False,
+        'use_reloader': False
+    })
+    server_thread.daemon = True
+    server_thread.start()
+    
+    # Give the server time to start
+    time.sleep(1)
+    
+    try:
         # Test 404
-        response = client.get('/nonexistent-page')
+        response = requests.get('http://localhost:5000/nonexistent-page')
         assert response.status_code == 404
-
+        
         # Test 500
-        response = client.get('/test-500')
+        response = requests.get('http://localhost:5000/test-500')
         assert response.status_code == 500
+    finally:
+        # Cleanup is handled by daemon=True
+        pass
 
 def test_middleware_chain():
     """Test that middleware is properly configured"""
