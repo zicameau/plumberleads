@@ -6,21 +6,8 @@ from dotenv import load_dotenv
 from flask_mail import Mail
 from app.utils.logging_config import setup_logging
 
-# Try to import SQLAlchemy, but don't fail if it's not available
-try:
-    from flask_sqlalchemy import SQLAlchemy
-    from flask_migrate import Migrate
-    db = SQLAlchemy()
-    migrate = Migrate()
-    has_sqlalchemy = True
-except ImportError:
-    has_sqlalchemy = False
-    db = None
-    migrate = None
-    print("Warning: SQLAlchemy not available. Running in limited mode.")
-
-# Load environment variables
-load_dotenv()
+# Initialize SQLAlchemy
+from app.models.base import db
 
 # Initialize mail
 mail = Mail()
@@ -36,7 +23,7 @@ def create_app(config_name=None):
     if config_name is None:
         config_name = os.getenv('FLASK_ENV', 'production')
 
-        # Load appropriate configuration
+    # Load appropriate configuration
     if config_name == 'production':
         from app.config.production import ProductionConfig
         app.config.from_object(ProductionConfig)
@@ -50,12 +37,10 @@ def create_app(config_name=None):
         from app.config.local import LocalConfig
         app.config.from_object(LocalConfig)
 
-    # Initialize extensions if available
-    if has_sqlalchemy:
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-        db.init_app(app)
-        migrate.init_app(app, db)
+    # Initialize SQLAlchemy
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
     
     # Set up logging
     loggers = setup_logging(app)
@@ -89,7 +74,7 @@ def create_app(config_name=None):
     except ImportError as e:
         print(f"Warning: Could not import admin blueprint: {e}")
     
-    # Initialize Supabase with configuration
+    # Initialize Supabase with configuration 
     from app.services.auth_service import init_supabase
     init_supabase(
         app.config['SUPABASE_URL'],
@@ -100,6 +85,9 @@ def create_app(config_name=None):
     # Initialize Stripe
     from app.services.payment_service import init_stripe
     init_stripe(app.config['STRIPE_API_KEY'])
+    
+    # Initialize mail
+    mail.init_app(app)
     
     @app.route('/health')
     def health_check():

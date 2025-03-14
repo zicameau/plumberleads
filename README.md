@@ -15,22 +15,12 @@ A platform that connects customers with plumbers, using a lead generation model 
 ## Technology Stack
 
 - **Backend**: Flask (Python)
-- **Authentication/Database**: Supabase
+- **Database**: PostgreSQL with PostGIS extension for geo queries
+- **Authentication**: JWT for local development, Supabase Auth for production
 - **Payment Processing**: Stripe
-- **Geo Processing**: PostGIS (via Supabase)
 - **Containerization**: Docker
-- **Frontend**: HTML, CSS (Tailwind CSS), JavaScript
+- **Frontend**: HTML, CSS (Bootstrap), JavaScript
 - **Email/SMS**: SMTP, Twilio (optional)
-
-## Documentation
-
-For detailed documentation, see the `/docs` directory:
-
-- [Development Guide](docs/development.md) - Local development setup and workflow
-- [API Documentation](docs/api.md) - REST API endpoints reference
-- [Deployment Guide](docs/deployment.md) - Production deployment instructions
-- [System Architecture](docs/architecture.md) - System design and architecture
-- [Implementation Checklist](docs/checklist.md) - Project progress tracking
 
 ## Getting Started
 
@@ -49,30 +39,48 @@ git clone https://github.com/yourusername/plumber-leads.git
 cd plumber-leads
 ```
 
-2. **Run the setup script**
-
-```bash
-chmod +x setup-local.sh
-./setup-local.sh
-```
-
-3. **Start the development environment**
+2. **Start the development environment**
 
 ```bash
 docker-compose up
 ```
 
-4. **Generate test data**
+This will:
+- Start PostgreSQL with PostGIS extension
+- Create the database schema
+- Generate test data
+- Start the Flask application
+- Start Mailhog for email testing
 
-```bash
-make fake-data
-```
-
-5. **Access the application**
+3. **Access the application**
 
 - Web Application: http://localhost:5000
-- Supabase Studio: http://localhost:54322
 - Mail Testing: http://localhost:8025
+
+### Development Workflow
+
+The project is configured for rapid development with automatic database resets. This approach allows for quick iterations without worrying about migrations during early development.
+
+#### Database Reset
+
+Every time you start the application with `docker-compose up`, the database is automatically reset and populated with test data. This ensures a consistent development environment.
+
+If you want to manually reset the database:
+
+```bash
+# Inside the web container
+python reset_db.py
+
+# Or from the host
+docker-compose exec web python reset_db.py
+```
+
+### Test Accounts
+
+After database initialization, the following test accounts are available:
+
+- **Admin**: admin@example.com / admin123
+- **Plumbers**: plumber1@example.com, plumber2@example.com, etc. / password123
 
 ## Project Structure
 
@@ -81,54 +89,48 @@ plumber_leads/
 ├── app/                    # Application code
 │   ├── config/             # Configuration settings
 │   ├── models/             # Database models
+│   │   └── base.py         # SQLAlchemy model definitions
 │   ├── routes/             # Route handlers
 │   ├── services/           # Business logic
 │   ├── templates/          # Jinja2 templates
 │   ├── static/             # Static assets
 │   └── utils/              # Utility functions
+│       └── fake_data.py    # Fake data generator
+├── deployment/             # Deployment configurations
 ├── docs/                   # Documentation
-├── tests/                  # Test suite
-├── docker/                 # Docker configurations
 ├── supabase/               # Supabase migrations
-└── .vscode/                # VS Code configurations
+│   └── migrations/         # SQL schema definitions
+├── reset_db.py             # Database reset script
+├── docker-compose.yml      # Docker Compose configuration
+├── Dockerfile              # Production Dockerfile
+├── Dockerfile.dev          # Development Dockerfile
+└── README.md               # Project documentation
 ```
 
-## Development Workflow
+## Working with the Database
 
-The project includes a Makefile with common development tasks:
+### Model Approach
 
-```bash
-# List all available commands
-make help
+The application uses SQLAlchemy models that sync with the Supabase database schema. The models are defined in `app/models/base.py`.
 
-# Start the development environment
-make dev
+Key models include:
+- `User`: Basic user information
+- `Plumber`: Plumber profiles with geo data
+- `Lead`: Customer service requests
+- `LeadClaim`: Records of plumbers claiming leads
 
-# Run the Flask application locally
-make run
+### Database Reset
 
-# Run tests
-make test
+The `reset_db.py` script handles:
+1. Dropping all existing tables and types
+2. Creating the schema from the SQL file
+3. Generating fake data
 
-# Format code
-make format
+This approach ensures a clean slate for development without migrations.
 
-# Run linters
-make lint
+## API Documentation
 
-# Reset the database (caution: destroys all data)
-make db-reset
-
-# Generate fake data for development
-make fake-data
-```
-
-## Test Accounts
-
-After running `make fake-data`, the following test accounts are available:
-
-- **Admin**: admin@example.com / admin123
-- **Plumbers**: plumber1@example.com, plumber2@example.com, etc. / password123
+The API documentation is available in the `docs/api-doc.md` file.
 
 ## Contributing
 

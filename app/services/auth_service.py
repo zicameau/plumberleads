@@ -4,132 +4,12 @@ import logging
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import current_app, request, g, jsonify, session, flash, redirect, url_for
-from app.models.plumber import Plumber
+from app.models.base import db, User, Plumber, UserRole
 from supabase import create_client, Client
 from .mock.supabase_mock import SupabaseMock
 
 # Get the auth logger
 logger = logging.getLogger('auth')
-
-# Placeholder functions for auth service
-def signup(email, password, user_metadata=None):
-    """Register a new user using Supabase Auth."""
-    logger.info(f"Signup attempt for {email} with role {user_metadata.get('role') if user_metadata else 'customer'}")
-    
-    try:
-        # Get Supabase client
-        supabase = get_supabase()
-        
-        # Create user in Supabase Auth
-        auth_response = supabase.auth.sign_up({
-            "email": email,
-            "password": password,
-            "options": {
-                "data": user_metadata  # This will be stored in user metadata
-            }
-        })
-        
-        if auth_response.user:
-            logger.info(f"User {email} registered successfully with Supabase Auth")
-            return auth_response.user
-        else:
-            logger.error(f"Failed to register user {email} with Supabase Auth")
-            return None
-            
-    except Exception as e:
-        logger.error(f"Error during signup for {email}: {str(e)}", exc_info=True)
-        raise
-
-def login(email, password):
-    """Log in a user."""
-    # In a real implementation, this would authenticate with Supabase Auth
-    logger.info(f"Login attempt for {email}")
-    
-    # For development/testing, check for admin credentials
-    if email == 'admin@example.com' and password == 'admin123':
-        # Create a mock session and user object
-        class MockSession:
-            def __init__(self, token):
-                self.access_token = token
-                
-        class MockUser:
-            def __init__(self, id, email, metadata):
-                self.id = id
-                self.email = email
-                self.user_metadata = metadata
-                
-        token = generate_token({"id": "admin-user-id", "email": email, "role": "admin"})
-        session = MockSession(token)
-        user = MockUser("admin-user-id", email, {"role": "admin", "name": "Admin User"})
-        
-        logger.info(f"Admin login successful for {email}")
-        return {"session": session, "user": user}
-    
-    # For regular users, check credentials against database
-    # This is a simplified example - in production, use proper password hashing
-    try:
-        # Get user role from metadata or related tables
-        role = 'customer'  # Default role
-        
-        # Check if user is a plumber
-        plumber = Plumber.get_by_user_id(email)  # In real app, use actual user_id
-        if plumber:
-            logger.info(f"User {email} identified as plumber with ID {plumber.id}")
-            role = 'plumber'
-            
-            # Create session and user objects
-            class MockSession:
-                def __init__(self, token):
-                    self.access_token = token
-                    
-            class MockUser:
-                def __init__(self, id, email, metadata):
-                    self.id = id
-                    self.email = email
-                    self.user_metadata = metadata
-                    
-            token = generate_token({"id": f"plumber-{plumber.id}", "email": email, "role": role})
-            session = MockSession(token)
-            
-            # Set metadata based on role
-            metadata = {"role": role, "company_name": plumber.company_name}
-            user = MockUser(f"plumber-{plumber.id}", email, metadata)
-            
-            logger.info(f"Plumber login successful for {email}")
-            return {"session": session, "user": user}
-    except Exception as e:
-        logger.error(f"Error during login for {email}: {str(e)}", exc_info=True)
-    
-    # Invalid credentials
-    logger.warning(f"Failed login attempt for {email}")
-    return None
-
-def logout(token):
-    """Log out a user by invalidating their token."""
-    logger.info("Logout requested")
-    
-    try:
-        # Decode token to get user info for logging
-        payload = jwt.decode(
-            token, 
-            os.environ.get('SECRET_KEY', 'dev-secret-key'),
-            algorithms=['HS256']
-        )
-        user_id = payload.get('sub')
-        logger.info(f"User {user_id} logged out successfully")
-    except Exception as e:
-        logger.warning(f"Logout with invalid token: {str(e)}")
-    
-    # In a real implementation, this would invalidate the token in Supabase Auth
-    return True
-
-def reset_password_request(email):
-    """Request a password reset."""
-    logger.info(f"Password reset requested for {email}")
-    
-    # In a real implementation, this would send a reset email via Supabase Auth
-    # For now, just return success
-    return True
 
 # Global variable to store Supabase client
 _supabase_client = None
@@ -157,6 +37,187 @@ def get_supabase():
     if not _supabase_client:
         raise RuntimeError("Supabase client not initialized")
     return _supabase_client
+
+def sync_user_to_db(supabase_user):
+    """Sync a Supabase user to the local database."""
+    # Extract user information
+    user_id = supabase_user.id
+    email = supabase_user.email
+    metadata = supabase_user.user_metadata or {}
+    role = metadata.get('role', 'plumber')
+    
+    # Create or update user in SQLAlchemy
+    user = db.session.query(User).filter_by(id=user_id).first()
+    if not user:
+        # Create new user
+        user = User(
+            id=user_id,
+            email=email,
+            role=UserRole(role)
+        )
+        db.session.add(user)
+    else:
+        # Update existing user
+        user.email = email
+        user.role = UserRole(role)
+    
+    # Commit changes
+    db.session.commit()
+    return user
+
+# Placeholder functions for auth service
+def signup(email, password, user_metadata=None):
+    """Register a new user using Supabase Auth."""
+    logger.info(f"Signup attempt for {email} with role {user_metadata.get('role') if user_metadata else 'customer'}")
+    
+    try:
+        # Get Supabase client
+        supabase = get_supabase()
+        
+        # Create user in Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": email,
+            "password": password,
+            "options": {
+                "data": user_metadata  # This will be stored in user metadata
+            }
+        })
+        
+        if auth_response.user:
+            logger.info(f"User {email} registered successfully with Supabase Auth")
+            
+            # Sync to local database
+            try:
+                with current_app.app_context():
+                    user = sync_user_to_db(auth_response.user)
+                    logger.info(f"User {email} synced to local database with ID {user.id}")
+            except Exception as e:
+                logger.error(f"Error syncing user {email} to local database: {str(e)}", exc_info=True)
+            
+            return auth_response.user
+        else:
+            logger.error(f"Failed to register user {email} with Supabase Auth")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error during signup for {email}: {str(e)}", exc_info=True)
+        raise
+
+def login(email, password):
+    """Log in a user."""
+    logger.info(f"Login attempt for {email}")
+    
+    # In production, this would use Supabase Auth
+    # supabase = get_supabase()
+    # result = supabase.auth.sign_in_with_password({"email": email, "password": password})
+    
+    # For development/testing, we'll use local authentication
+    
+    # Check for admin credentials
+    if email == 'admin@example.com' and password == 'admin123':
+        # Create a mock session and user object
+        class MockSession:
+            def __init__(self, token):
+                self.access_token = token
+                
+        class MockUser:
+            def __init__(self, id, email, metadata):
+                self.id = id
+                self.email = email
+                self.user_metadata = metadata
+                
+        token = generate_token({"id": "admin-user-id", "email": email, "role": "admin"})
+        session = MockSession(token)
+        user = MockUser("admin-user-id", email, {"role": "admin", "name": "Admin User"})
+        
+        # Create/update user in the local database
+        with current_app.app_context():
+            db_user = db.session.query(User).filter_by(email=email).first()
+            if not db_user:
+                db_user = User(id="admin-user-id", email=email, role=UserRole.admin)
+                db.session.add(db_user)
+                db.session.commit()
+        
+        logger.info(f"Admin login successful for {email}")
+        return {"session": session, "user": user}
+    
+    # For plumber users (simplified auth for development)
+    try:
+        # Check if user exists in local database
+        with current_app.app_context():
+            db_user = db.session.query(User).filter_by(email=email).first()
+            
+            # For development, accept any password for registered users
+            if db_user:
+                user_id = db_user.id
+                role = db_user.role.value
+                
+                # Create session and user objects
+                class MockSession:
+                    def __init__(self, token):
+                        self.access_token = token
+                        
+                class MockUser:
+                    def __init__(self, id, email, metadata):
+                        self.id = id
+                        self.email = email
+                        self.user_metadata = metadata
+                
+                # Check if this is a plumber and get additional info
+                plumber = db.session.query(Plumber).filter_by(user_id=user_id).first()
+                company_name = plumber.company_name if plumber else "Unknown Company"
+                
+                token = generate_token({"id": str(user_id), "email": email, "role": role})
+                session = MockSession(token)
+                metadata = {"role": role, "company_name": company_name}
+                user = MockUser(str(user_id), email, metadata)
+                
+                logger.info(f"User login successful for {email} with role {role}")
+                return {"session": session, "user": user}
+    except Exception as e:
+        logger.error(f"Error during login for {email}: {str(e)}", exc_info=True)
+    
+    # Invalid credentials
+    logger.warning(f"Failed login attempt for {email}")
+    return None
+
+def logout(token):
+    """Log out a user by invalidating their token."""
+    logger.info("Logout requested")
+    
+    try:
+        # Decode token to get user info for logging
+        payload = jwt.decode(
+            token, 
+            os.environ.get('SECRET_KEY', 'dev-secret-key'),
+            algorithms=['HS256']
+        )
+        user_id = payload.get('sub')
+        logger.info(f"User {user_id} logged out successfully")
+        
+        # In a real implementation, this would invalidate the token in Supabase Auth
+        # supabase = get_supabase()
+        # supabase.auth.sign_out(token)
+        
+    except Exception as e:
+        logger.warning(f"Logout with invalid token: {str(e)}")
+    
+    return True
+
+def reset_password_request(email):
+    """Request a password reset."""
+    logger.info(f"Password reset requested for {email}")
+    
+    try:
+        # In a real implementation, this would send a reset email via Supabase Auth
+        # supabase = get_supabase()
+        # supabase.auth.reset_password_email(email)
+        
+        # For development, just return success
+        return True
+    except Exception as e:
+        logger.error(f"Error requesting password reset for {email}: {str(e)}", exc_info=True)
+        return False
 
 def generate_token(payload, expires_delta=None):
     """Generate a JWT token."""
@@ -314,4 +375,4 @@ def plumber_required(f):
         logger.info(f"[{request_id}] Plumber access granted to {g.user.get('id')} for {request.path}")
         return f(*args, **kwargs)
     
-    return decorated 
+    return decorated

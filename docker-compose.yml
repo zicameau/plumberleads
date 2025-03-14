@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # Flask Web Application
   web:
@@ -15,7 +17,14 @@ services:
       - FLASK_APP=run.py
       - FLASK_DEBUG=1
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
-    command: sh -c "sleep 10 && flask run --host=0.0.0.0"
+      - SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@postgres:5432/postgres
+    command: >
+      sh -c "
+        echo 'Waiting for postgres...' &&
+        sleep 5 &&
+        python reset_db.py --schema=supabase/migrations/local_schema.sql &&
+        flask run --host=0.0.0.0
+      "
     depends_on:
       - postgres
 
@@ -26,7 +35,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./supabase/migrations/local_schema.sql:/docker-entrypoint-initdb.d/local_schema.sql
     environment:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
