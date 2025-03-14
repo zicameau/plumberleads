@@ -88,8 +88,23 @@ def test_error_handling():
     server_thread.daemon = True
     server_thread.start()
     
-    # Give the server time to start
-    time.sleep(1)
+    # Wait for the server to start by polling the health endpoint
+    max_retries = 30
+    retry_interval = 0.1
+    for i in range(max_retries):
+        try:
+            response = requests.get('http://localhost:5000/health')
+            if response.status_code == 200:
+                # Server is up and running
+                break
+        except requests.exceptions.ConnectionError:
+            # Server not ready yet
+            pass
+        
+        if i == max_retries - 1:
+            pytest.fail("Server failed to start after maximum retries")
+        
+        time.sleep(retry_interval)
     
     try:
         # Test 404
