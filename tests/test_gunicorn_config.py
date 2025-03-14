@@ -2,13 +2,14 @@ import multiprocessing
 import pytest
 from gunicorn.app.base import BaseApplication
 from gunicorn.config import Config
+from gunicorn.workers.sync import SyncWorker
 
 def test_gunicorn_config():
     """Test Gunicorn configuration"""
     config = Config()
     
     # Test basic configuration
-    assert config.worker_class == 'sync'
+    assert config.worker_class == SyncWorker
     assert config.workers == multiprocessing.cpu_count() * 2 + 1
     assert config.threads == 1
     

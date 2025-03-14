@@ -63,7 +63,7 @@ def test_route_registration():
         # Test core routes
         assert url_for('home.index') is not None
         assert url_for('auth.login') is not None
-        assert url_for('auth.register') is not None
+        assert url_for('auth.register_plumber') is not None
 
 def test_error_handling():
     """Test error handling for common scenarios"""
