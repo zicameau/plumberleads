@@ -122,10 +122,40 @@ def test_middleware_chain():
     """Test that middleware is properly configured"""
     app = create_app('testing')
     
-    # Check if essential middleware exists
-    assert 'flask_cors' in app.extensions
+    # Method 1: Look for CORS in multiple ways
+    cors_detected = False
     
+    # Check in extensions (different versions might register differently)
+    for ext_name in app.extensions:
+        if 'cors' in ext_name.lower():
+            cors_detected = True
+            break
+    
+    # Check in the app's attributes
+    if hasattr(app, '_cors'):
+        cors_detected = True
+    
+    # Check in the app's before_request functions
+    for funcs in app.before_request_funcs.values():
+        for func in funcs:
+            if 'cors' in func.__module__.lower():
+                cors_detected = True
+                break
+    
+    # Assert that CORS was detected in the app configuration
+    assert cors_detected, "CORS middleware not detected in app configuration"
+    
+    # Method 2: Test actual CORS functionality
     with app.test_client() as client:
+        # Test regular request
         response = client.get('/health')
-        # Check CORS headers
-        assert 'Access-Control-Allow-Origin' in response.headers 
+        assert 'Access-Control-Allow-Origin' in response.headers, "CORS headers missing in regular response"
+        
+        # Test OPTIONS request (preflight)
+        preflight_response = client.options('/health', headers={
+            'Origin': 'http://example.com',
+            'Access-Control-Request-Method': 'GET'
+        })
+        assert preflight_response.status_code == 200, "Preflight request failed"
+        assert 'Access-Control-Allow-Origin' in preflight_response.headers, "CORS headers missing in preflight response"
+        assert 'Access-Control-Allow-Methods' in preflight_response.headers, "CORS methods header missing in preflight response" 
