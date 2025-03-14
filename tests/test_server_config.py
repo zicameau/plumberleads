@@ -72,15 +72,20 @@ def test_error_handling():
     @app.route('/test-500')
     def trigger_error():
         raise Exception('Test error')
-
+    
     with app.test_client() as client:
         # Test 404
         response = client.get('/nonexistent-page')
         assert response.status_code == 404
-
-        # Test 500
-        response = client.get('/test-500')
-        assert response.status_code == 500
+        
+        # Test 500 - temporarily disable testing mode to catch the exception
+        app.testing = False
+        try:
+            response = client.get('/test-500')
+            assert response.status_code == 500
+        finally:
+            # Restore testing mode
+            app.testing = True
 
 def test_middleware_chain():
     """Test that middleware is properly configured"""

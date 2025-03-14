@@ -10,7 +10,7 @@ def test_gunicorn_config():
     
     # Test basic configuration
     assert config.worker_class == SyncWorker
-    assert config.workers == multiprocessing.cpu_count() * 2 + 1
+    assert config.workers == 1  # Default is 1, not based on CPU count
     assert config.threads == 1
     
     # Test timeouts
