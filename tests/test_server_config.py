@@ -72,17 +72,19 @@ def test_error_handling():
     @app.route('/test-500')
     def trigger_error():
         raise Exception('Test error')
-    
-    # Add an error handler for the test
+
     @app.errorhandler(Exception)
     def handle_exception(e):
+        # Don't handle HTTP exceptions like 404/NotFound
+        if isinstance(e, werkzeug.exceptions.HTTPException):
+            return e  # Let Flask handle HTTP exceptions normally
         return "Error occurred", 500
-    
+
     with app.test_client() as client:
         # Test 404
         response = client.get('/nonexistent-page')
         assert response.status_code == 404
-        
+
         # Test 500
         response = client.get('/test-500')
         assert response.status_code == 500
