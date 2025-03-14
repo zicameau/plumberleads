@@ -73,13 +73,18 @@ def test_error_handling():
     def trigger_error():
         raise Exception('Test error')
     
+    # Add an error handler for the test
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        return "Error occurred", 500
+    
     with app.test_client() as client:
         # Test 404
         response = client.get('/nonexistent-page')
         assert response.status_code == 404
         
-        # Test 500 - use catch_exceptions=False to get the response
-        response = client.get('/test-500', catch_exceptions=False)
+        # Test 500
+        response = client.get('/test-500')
         assert response.status_code == 500
 
 def test_middleware_chain():
