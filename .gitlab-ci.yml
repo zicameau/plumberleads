@@ -91,7 +91,9 @@ deploy:
     - mkdir -p deployment/traefik/dynamic
   script:
     - echo "Preparing deployment..."
-    - ./deployment/setup-env.sh
+    - ./deployment/setup-env.sh || { echo "Warning: setup-env.sh exited with non-zero status but continuing"; }
+    - echo "Verifying environment file exists..."
+    - test -f .env.production || { echo "ERROR: .env.production file not created!"; exit 1; }
     - echo "Copying files to server..."
     - ssh $SERVER_USER@$SERVER_IP "mkdir -p /opt/plumberleads/traefik/dynamic"
     - scp .env.production $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env.production

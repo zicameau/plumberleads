@@ -34,5 +34,6 @@ EOF
 mv .env.production.temp .env.production
 
 echo "Environment file created successfully"
-echo "Verifying environment file contents:"
-grep -v PASSWORD -v SECRET -v KEY .env.production
+echo "Verifying environment file contents (excluding sensitive data):"
+# Use cat and grep with || true to prevent pipeline failure
+cat .env.production | grep -v "PASSWORD\|SECRET\|KEY" || true
