@@ -105,7 +105,7 @@ def test_logout(app, client):
     assert b'You have been logged out' in response.data or b'Please log in' in response.data
     
     # Try to access a protected route
-    response = client.get('/admin/dashboard', follow_redirects=True)
+    response = client.get('/admin/', follow_redirects=True)
     
     # Should be redirected to login page
     assert b'Please log in' in response.data
