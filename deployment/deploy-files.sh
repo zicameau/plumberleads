@@ -31,14 +31,7 @@ scp deployment/debug_container.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/debu
 scp deployment/verify_env.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/verify_env.sh
 
 echo "Running deployment script on server..."
-ssh $SERVER_USER@$SERVER_IP "export CI_REGISTRY=${CI_REGISTRY} && \
-export CI_REGISTRY_USER=${CI_REGISTRY_USER} && \
-export CI_REGISTRY_PASSWORD=${CI_REGISTRY_PASSWORD} && \
-chmod +x /opt/plumberleads/deploy.sh && \
-chmod +x /opt/plumberleads/debug.sh && \
-chmod +x /opt/plumberleads/check_flask_app.sh && \
-chmod +x /opt/plumberleads/debug_container.sh && \
-/opt/plumberleads/deploy.sh"
+ssh $SERVER_USER@$SERVER_IP "export CI_REGISTRY=${CI_REGISTRY} && export CI_REGISTRY_USER=${CI_REGISTRY_USER} && export CI_REGISTRY_PASSWORD=${CI_REGISTRY_PASSWORD} && chmod +x /opt/plumberleads/deploy.sh && chmod +x /opt/plumberleads/debug.sh && chmod +x /opt/plumberleads/check_flask_app.sh && chmod +x /opt/plumberleads/debug_container.sh && /opt/plumberleads/deploy.sh"
 
 echo "Creating debug container..."
 ssh $SERVER_USER@$SERVER_IP "/opt/plumberleads/debug_container.sh"

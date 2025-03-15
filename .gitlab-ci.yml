@@ -94,7 +94,7 @@ deploy:
     - echo "Preparing deployment..."
     - ./deployment/setup-env.sh || echo "Warning: setup-env.sh exited with non-zero status but continuing"
     - echo "Verifying environment file exists..."
-    - test -f .env.production || (echo "ERROR: .env.production file not created!" && exit 1)
+    - if [ ! -f .env.production ]; then echo "ERROR: .env.production file not created!"; exit 1; fi
     - echo "Deploying files to server..."
     - ./deployment/deploy-files.sh
   environment:
