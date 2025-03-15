@@ -7,32 +7,31 @@ import sys
 from app import create_app
 from app.models.base import db, Base
 
-def main():
-    """Initialize the database and run the application."""
-    # Create the Flask app
-    app = create_app(os.getenv('FLASK_ENV', 'development'))
-    
-    # Initialize the database
-    with app.app_context():
-        try:
-            print("Checking database tables...")
-            inspector = db.inspect(db.engine)
-            tables = inspector.get_table_names()
+# Create the Flask app at module level for Gunicorn
+app = create_app(os.getenv('FLASK_ENV', 'development'))
+
+# Initialize the database
+with app.app_context():
+    try:
+        print("Checking database tables...")
+        inspector = db.inspect(db.engine)
+        tables = inspector.get_table_names()
+        
+        if 'users' not in tables:
+            print("Creating database tables...")
+            Base.metadata.create_all(db.engine)
+            print("Database tables created successfully!")
             
-            if 'users' not in tables:
-                print("Creating database tables...")
-                Base.metadata.create_all(db.engine)
-                print("Database tables created successfully!")
-                
-                # List all tables that were created
-                tables = inspector.get_table_names()
-                print(f"Tables in database: {', '.join(tables)}")
-            else:
-                print("Database tables already exist.")
-        except Exception as e:
-            print(f"Error checking/creating database tables: {str(e)}")
-            sys.exit(1)
-    
+            # List all tables that were created
+            tables = inspector.get_table_names()
+            print(f"Tables in database: {', '.join(tables)}")
+        else:
+            print("Database tables already exist.")
+    except Exception as e:
+        print(f"Error checking/creating database tables: {str(e)}")
+
+def main():
+    """Run the application."""
     # Run the application
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
