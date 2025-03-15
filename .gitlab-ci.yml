@@ -94,7 +94,8 @@ deploy:
     - ./deployment/setup-env.sh
     - echo "Copying files to server..."
     - ssh $SERVER_USER@$SERVER_IP "mkdir -p /opt/plumberleads/traefik/dynamic"
-    - scp deploy.env $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
+    - scp .env.production $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env.production
+    - scp .env.production $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
     - scp deployment/docker-compose.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/docker-compose.yml
     - scp deployment/traefik/traefik.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/traefik/traefik.yml
     - scp deployment/traefik/dynamic/services.yml $SERVER_USER@$SERVER_IP:/opt/plumberleads/traefik/dynamic/services.yml
@@ -103,6 +104,7 @@ deploy:
     - scp deployment/check_flask_app.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/check_flask_app.sh
     - scp deployment/logging_config.py $SERVER_USER@$SERVER_IP:/opt/plumberleads/logging_config.py
     - scp deployment/debug_container.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/debug_container.sh
+    - scp deployment/verify_env.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/verify_env.sh
     - echo "Running deployment script on server..."
     - |
       ssh $SERVER_USER@$SERVER_IP "export CI_REGISTRY=${CI_REGISTRY} && \
