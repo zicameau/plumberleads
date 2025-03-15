@@ -14,6 +14,9 @@ The following variables need to be set up in GitLab CI/CD:
 - `SUPABASE_URL`: Supabase project URL
 - `SUPABASE_KEY`: Supabase API key
 
+### Admin User Configuration
+- `ADMIN_PW`: Password for the admin user (will be set as ADMIN_PASSWORD in the environment)
+
 ### Server Configuration
 - `SERVER_IP`: IP address of the deployment server
 - `SERVER_USER`: SSH username for the deployment server

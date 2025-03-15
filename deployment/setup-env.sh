@@ -16,6 +16,9 @@ SQLALCHEMY_DATABASE_URI=${SQLALCHEMY_DATABASE_URI}
 # Supabase Configuration
 SUPABASE_KEY=${SUPABASE_KEY}
 
+# Admin User Configuration
+ADMIN_PASSWORD=${ADMIN_PW}
+
 # Application Configuration
 SECRET_KEY=${SECRET_KEY}
 

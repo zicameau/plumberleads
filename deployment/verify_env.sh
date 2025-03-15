@@ -15,6 +15,8 @@ REQUIRED_VARS=(
   "SECRET_KEY"
   "FLASK_ENV"
   "FLASK_APP"
+  "ADMIN_EMAIL"
+  "ADMIN_PASSWORD"
 )
 
 # Path to environment file
@@ -45,24 +47,22 @@ else
   echo "=== VERIFICATION PASSED: All required variables are present ==="
 fi
 
-# Test database connection (only if we're not in a CI environment)
-if [ -z "$CI" ]; then
-  echo "=== Testing Database Connection ==="
-  if grep -q "^DATABASE_URL=" "$ENV_FILE"; then
-    DB_URL=$(grep "^DATABASE_URL=" "$ENV_FILE" | cut -d '=' -f2-)
-    echo "Attempting to connect to database..."
-    if command -v pg_isready > /dev/null; then
-      # Extract host and port from DATABASE_URL
-      DB_HOST=$(echo $DB_URL | sed -n 's/.*@\([^:]*\).*/\1/p')
-      DB_PORT=$(echo $DB_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
-      if [ -z "$DB_PORT" ]; then
-        DB_PORT=5432
-      fi
-      
-      pg_isready -h $DB_HOST -p $DB_PORT && echo "✓ Database connection successful" || echo "✗ Database connection failed"
-    else
-      echo "pg_isready not available, skipping database connection test"
+# Test database connection
+echo "=== Testing Database Connection ==="
+if grep -q "^DATABASE_URL=" "$ENV_FILE"; then
+  DB_URL=$(grep "^DATABASE_URL=" "$ENV_FILE" | cut -d '=' -f2-)
+  echo "Attempting to connect to database..."
+  if command -v pg_isready > /dev/null; then
+    # Extract host and port from DATABASE_URL
+    DB_HOST=$(echo $DB_URL | sed -n 's/.*@\([^:]*\).*/\1/p')
+    DB_PORT=$(echo $DB_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+    if [ -z "$DB_PORT" ]; then
+      DB_PORT=5432
     fi
+    
+    pg_isready -h $DB_HOST -p $DB_PORT && echo "✓ Database connection successful" || echo "✗ Database connection failed"
+  else
+    echo "pg_isready not available, skipping database connection test"
   fi
 fi
 

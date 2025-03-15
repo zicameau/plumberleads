@@ -75,12 +75,16 @@ def create_app(config_name=None):
         print(f"Warning: Could not import admin blueprint: {e}")
     
     # Initialize Supabase with configuration 
-    from app.services.auth_service import init_supabase
+    from app.services.auth_service import init_supabase, init_admin_user
     init_supabase(
         app.config['SUPABASE_URL'],
         app.config['SUPABASE_KEY'],
         testing=app.config.get('TESTING', False)
     )
+    
+    # Initialize admin user
+    with app.app_context():
+        init_admin_user()
     
     # Initialize Stripe
     from app.services.payment_service import init_stripe

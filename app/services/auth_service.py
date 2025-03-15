@@ -38,6 +38,93 @@ def get_supabase():
         raise RuntimeError("Supabase client not initialized")
     return _supabase_client
 
+def init_admin_user():
+    """Initialize admin user in Supabase and local database if it doesn't exist."""
+    admin_email = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+    admin_password = os.environ.get('ADMIN_PASSWORD')
+    
+    if not admin_password:
+        logger.warning("ADMIN_PASSWORD environment variable not set. Admin user will not be created.")
+        return
+    
+    logger.info(f"Checking if admin user {admin_email} exists")
+    
+    try:
+        # Check if admin user exists in local database
+        with current_app.app_context():
+            admin_user = db.session.query(User).filter_by(email=admin_email).first()
+            
+            if not admin_user:
+                logger.info(f"Admin user {admin_email} not found in local database, creating...")
+                
+                # Try to create admin user in Supabase if not in testing mode
+                if not current_app.config.get('TESTING', False):
+                    try:
+                        supabase = get_supabase()
+                        
+                        # Check if user exists in Supabase
+                        try:
+                            # Try to sign in - if it succeeds, user exists
+                            auth_response = supabase.auth.sign_in_with_password({
+                                "email": admin_email,
+                                "password": admin_password
+                            })
+                            
+                            if auth_response and auth_response.user:
+                                logger.info(f"Admin user {admin_email} exists in Supabase")
+                                admin_id = auth_response.user.id
+                                
+                                # Update user metadata if needed
+                                if not auth_response.user.user_metadata or auth_response.user.user_metadata.get('role') != 'admin':
+                                    logger.info(f"Updating admin user metadata in Supabase")
+                                    # This would require admin access to Supabase
+                                    # In a real implementation, you would use Supabase admin API
+                            else:
+                                raise Exception("User exists but couldn't retrieve details")
+                                
+                        except Exception:
+                            # User doesn't exist, create it
+                            logger.info(f"Creating admin user {admin_email} in Supabase")
+                            
+                            # For now, use regular signup
+                            auth_response = supabase.auth.sign_up({
+                                "email": admin_email,
+                                "password": admin_password,
+                                "options": {
+                                    "data": {
+                                        "role": "admin",
+                                        "name": "Admin User"
+                                    }
+                                }
+                            })
+                            
+                            if auth_response and auth_response.user:
+                                admin_id = auth_response.user.id
+                                logger.info(f"Admin user created in Supabase with ID {admin_id}")
+                            else:
+                                raise Exception("Failed to create admin user in Supabase")
+                    except Exception as e:
+                        logger.error(f"Error managing admin user in Supabase: {str(e)}", exc_info=True)
+                        # Continue with local database creation even if Supabase fails
+                        admin_id = "admin-user-id"
+                else:
+                    # For testing, use a fixed ID
+                    admin_id = "admin-user-id"
+                
+                # Create admin user in local database
+                admin_user = User(
+                    id=admin_id,
+                    email=admin_email,
+                    role=UserRole.admin
+                )
+                db.session.add(admin_user)
+                db.session.commit()
+                logger.info(f"Admin user {admin_email} created in local database with ID {admin_id}")
+            else:
+                logger.info(f"Admin user {admin_email} already exists in local database")
+    except Exception as e:
+        logger.error(f"Error initializing admin user: {str(e)}", exc_info=True)
+
 def sync_user_to_db(supabase_user):
     """Sync a Supabase user to the local database."""
     # Extract user information
