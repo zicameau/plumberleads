@@ -39,7 +39,21 @@ git clone https://github.com/yourusername/plumber-leads.git
 cd plumber-leads
 ```
 
-2. **Start the development environment**
+2. **Initialize the database**
+
+```bash
+# Run the database initialization script
+python init_db.py
+```
+
+3. **Start the development environment**
+
+```bash
+# Run the application with database initialization
+python run.py
+```
+
+Or use Docker Compose:
 
 ```bash
 docker-compose up
@@ -52,7 +66,7 @@ This will:
 - Start the Flask application
 - Start Mailhog for email testing
 
-3. **Access the application**
+4. **Access the application**
 
 - Web Application: http://localhost:5000
 - Mail Testing: http://localhost:8025
@@ -123,6 +137,8 @@ plumber_leads/
 ├── supabase/               # Supabase migrations
 │   └── migrations/         # SQL schema definitions
 ├── reset_db.py             # Database reset script
+├── init_db.py              # Database initialization script
+├── run.py                  # Application runner with DB initialization
 ├── docker-compose.yml      # Docker Compose configuration
 ├── Dockerfile              # Production Dockerfile
 ├── Dockerfile.dev          # Development Dockerfile
@@ -141,6 +157,15 @@ Key models include:
 - `Lead`: Customer service requests
 - `LeadClaim`: Records of plumbers claiming leads
 
+### Database Initialization
+
+The `init_db.py` script handles:
+1. Creating all database tables if they don't exist
+2. Listing all tables that were created
+3. Checking if the admin user exists
+
+This approach ensures the database is properly set up before running the application.
+
 ### Database Reset
 
 The `reset_db.py` script handles:
@@ -149,6 +174,20 @@ The `reset_db.py` script handles:
 3. Generating fake data
 
 This approach ensures a clean slate for development without migrations.
+
+## Running Tests
+
+To run the tests with proper database initialization:
+
+```bash
+# Run the test script
+./run_tests.sh
+```
+
+This will:
+1. Set up the test environment
+2. Initialize the test database
+3. Run the tests
 
 ## API Documentation
 

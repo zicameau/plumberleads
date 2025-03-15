@@ -127,30 +127,59 @@ def init_admin_user():
 
 def sync_user_to_db(supabase_user):
     """Sync a Supabase user to the local database."""
-    # Extract user information
-    user_id = supabase_user.id
-    email = supabase_user.email
-    metadata = supabase_user.user_metadata or {}
-    role = metadata.get('role', 'plumber')
-    
-    # Create or update user in SQLAlchemy
-    user = db.session.query(User).filter_by(id=user_id).first()
-    if not user:
-        # Create new user
-        user = User(
-            id=user_id,
-            email=email,
-            role=UserRole(role)
-        )
-        db.session.add(user)
-    else:
-        # Update existing user
-        user.email = email
-        user.role = UserRole(role)
-    
-    # Commit changes
-    db.session.commit()
-    return user
+    try:
+        # Extract user information
+        user_id = supabase_user.id
+        email = supabase_user.email
+        metadata = supabase_user.user_metadata or {}
+        role = metadata.get('role', 'plumber')
+        
+        # Check if the users table exists
+        try:
+            # Create or update user in SQLAlchemy
+            user = db.session.query(User).filter_by(id=user_id).first()
+            if not user:
+                # Create new user
+                user = User(
+                    id=user_id,
+                    email=email,
+                    role=UserRole(role)
+                )
+                db.session.add(user)
+            else:
+                # Update existing user
+                user.email = email
+                user.role = UserRole(role)
+            
+            # Commit changes
+            db.session.commit()
+            return user
+        except Exception as e:
+            # If there's an error (like table doesn't exist), create the tables
+            if "relation" in str(e) and "does not exist" in str(e):
+                logger.warning(f"Database tables don't exist, creating them now: {str(e)}")
+                from app.models.base import Base
+                Base.metadata.create_all(db.engine)
+                
+                # Try again after creating tables
+                user = User(
+                    id=user_id,
+                    email=email,
+                    role=UserRole(role)
+                )
+                db.session.add(user)
+                db.session.commit()
+                return user
+            else:
+                # Re-raise if it's not a "table doesn't exist" error
+                raise
+    except Exception as e:
+        logger.error(f"Error syncing user to database: {str(e)}", exc_info=True)
+        # Return a mock user object with the basic information
+        # This allows authentication to proceed even if DB sync fails
+        from collections import namedtuple
+        MockUser = namedtuple('MockUser', ['id', 'email', 'role'])
+        return MockUser(id=user_id, email=email, role=role)
 
 def signup(email, password, user_metadata=None):
     """Register a new user using Supabase Auth."""

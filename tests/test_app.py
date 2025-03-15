@@ -2,6 +2,7 @@ import pytest
 import os
 import sys
 from app import create_app
+from app.models.base import db, Base
 
 # Add mock services to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../app/services/mock')))
@@ -13,6 +14,8 @@ def app():
     
     # Create an application context
     with app.app_context():
+        # Ensure database tables are created
+        Base.metadata.create_all(db.engine)
         yield app
 
 @pytest.fixture

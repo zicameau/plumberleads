@@ -8,7 +8,7 @@ from app.utils.logging_config import setup_logging
 from datetime import datetime
 
 # Initialize SQLAlchemy
-from app.models.base import db
+from app.models.base import db, Base
 
 # Initialize mail
 mail = Mail()
@@ -42,6 +42,20 @@ def create_app(config_name=None):
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
+    
+    # Create database tables if they don't exist
+    with app.app_context():
+        try:
+            print("Creating database tables...")
+            Base.metadata.create_all(db.engine)
+            print("Database tables created successfully!")
+            
+            # List all tables that were created
+            inspector = db.inspect(db.engine)
+            tables = inspector.get_table_names()
+            print(f"Tables in database: {', '.join(tables)}")
+        except Exception as e:
+            print(f"Error creating database tables: {str(e)}")
     
     # Set up logging
     loggers = setup_logging(app)
