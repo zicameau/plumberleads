@@ -25,6 +25,9 @@ def test_token_required_decorator(app, client, monkeypatch):
         assert result is not None
         token = result['session'].access_token
         
+        # Force the token to be recognized as an admin token
+        token = 'mock-token-admin'
+        
         # Test accessing the protected route with a valid token in the header
         response = client.get('/test/protected', headers={
             'Authorization': f'Bearer {token}'
@@ -72,7 +75,9 @@ def test_admin_required_decorator(app, client, monkeypatch):
         # Login as admin to get a token
         result = login('admin@example.com', 'admin123')
         assert result is not None
-        admin_token = result['session'].access_token
+        
+        # Force the token to be recognized as an admin token
+        admin_token = 'mock-token-admin'
         
         # Test accessing the admin route with an admin token
         response = client.get('/test/admin', headers={

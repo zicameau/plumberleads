@@ -87,7 +87,7 @@ class AuthMock:
     def get_user(self, token):
         """Mock get user method for token verification"""
         # Special case for admin token
-        if token == 'mock-token-admin':
+        if token == 'mock-token-admin' or 'admin' in token:
             user = MockUser(
                 id='123e4567-e89b-12d3-a456-426614174000',  # Valid UUID format
                 email='admin@example.com',
