@@ -165,3 +165,45 @@ The API documentation is available in the `docs/api-doc.md` file.
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Environment Variables Management
+
+### Local Development
+
+For local development, follow the instructions in the [Environment Setup](#environment-setup) section to create your local `.env.*` files based on the example templates.
+
+### GitLab CI/CD Environment Variables
+
+For deployment environments (staging, production), we use GitLab CI/CD Variables to securely store sensitive information:
+
+1. **Access GitLab CI/CD Variables**:
+   - Go to your GitLab project
+   - Navigate to **Settings > CI/CD > Variables**
+
+2. **Add Variables**:
+   - Click on **Add Variable**
+   - Enter the variable name (e.g., `DATABASE_URL`)
+   - Enter the variable value
+   - Configure protection options:
+     - **Protect variable**: Limit to protected branches/tags
+     - **Mask variable**: Hide value in job logs
+   - Click **Add Variable**
+
+3. **Using Variables in CI/CD Pipelines**:
+   Variables are automatically available in your CI/CD pipelines and can be referenced in your `.gitlab-ci.yml` file:
+
+   ```yaml
+   deploy:
+     stage: deploy
+     script:
+       - echo "Deploying with database URL $DATABASE_URL"
+       - # Your deployment commands here
+   ```
+
+4. **Using Variables in Deployed Applications**:
+   During deployment, you can:
+   - Generate environment files from CI/CD variables
+   - Pass variables directly to your application
+   - Use environment-specific configuration files
+
+For more information, see [GitLab CI/CD Variables Documentation](https://docs.gitlab.com/ci/variables/).
