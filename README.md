@@ -57,6 +57,28 @@ This will:
 - Web Application: http://localhost:5000
 - Mail Testing: http://localhost:8025
 
+### Environment Setup
+
+The project uses environment variables for configuration. Example files are provided as templates:
+
+1. **Copy the example environment files**
+
+```bash
+cp .env.local.example .env.local
+cp .env.production.example .env.production
+cp .env.test.example .env.test
+```
+
+2. **Update the environment variables**
+
+Edit the `.env.local` file with your development credentials:
+- Database connection details
+- Supabase project URL and API key
+- Stripe API keys
+- Email and SMS service credentials
+
+**Important**: Never commit your actual `.env.*` files to the repository. They contain sensitive information and are already added to `.gitignore`.
+
 ### Development Workflow
 
 The project is configured for rapid development with automatic database resets. This approach allows for quick iterations without worrying about migrations during early development.
