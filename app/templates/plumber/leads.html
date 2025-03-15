@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block title %}Available Leads{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Available Leads</h1>
+    
+    {% if error %}
+    <div class="alert alert-danger">
+        An error occurred while loading available leads. Please try again.
+    </div>
+    {% endif %}
+    
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Leads in Your Service Area</h5>
+            <div>
+                <span class="badge bg-info">{{ lead_credits }} Credits Available</span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if leads %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Service Needed</th>
+                            <th>Location</th>
+                            <th>Urgency</th>
+                            <th>Date Posted</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lead in leads %}
+                        <tr>
+                            <td>
+                                {% if lead.service_needed|length > 0 %}
+                                    {{ lead.service_needed[0]|replace('_', ' ')|title }}
+                                    {% if lead.service_needed|length > 1 %}
+                                    <span class="badge bg-secondary">+{{ lead.service_needed|length - 1 }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ lead.city }}, {{ lead.state }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'danger' if lead.urgency == 'emergency' else 'warning' if lead.urgency in ['today', 'tomorrow'] else 'info' }}">
+                                    {{ lead.urgency|replace('_', ' ')|title }}
+                                </span>
+                            </td>
+                            <td>{{ lead.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <a href="{{ url_for('plumber.view_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-primary">View Details</a>
+                                {% if lead_credits > 0 %}
+                                <form method="POST" action="{{ url_for('plumber.claim_lead', lead_id=lead.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-success">Claim (1 Credit)</button>
+                                </form>
+                                {% else %}
+                                <a href="{{ url_for('plumber.purchase_lead_credits') }}" class="btn btn-sm btn-warning">Buy Credits</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                {% if page > 1 %}
+                <a href="{{ url_for('plumber.available_leads', page=page-1) }}" class="btn btn-outline-primary">Previous</a>
+                {% else %}
+                <button class="btn btn-outline-secondary" disabled>Previous</button>
+                {% endif %}
+                
+                <span>Page {{ page }}</span>
+                
+                {% if has_more %}
+                <a href="{{ url_for('plumber.available_leads', page=page+1) }}" class="btn btn-outline-primary">Next</a>
+                {% else %}
+                <button class="btn btn-outline-secondary" disabled>Next</button>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                No leads are currently available in your service area. Check back later!
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Need More Credits?</h5>
+        </div>
+        <div class="card-body">
+            <p>You currently have <strong>{{ lead_credits }} lead credits</strong> available.</p>
+            <p>Each lead costs 1 credit to claim. Purchase more credits to continue claiming leads.</p>
+            <a href="{{ url_for('plumber.purchase_lead_credits') }}" class="btn btn-primary">Purchase Lead Credits</a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}Plumber Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Plumber Dashboard</h1>
+    
+    {% if error %}
+    <div class="alert alert-danger">
+        An error occurred while loading your dashboard. Please try again.
+    </div>
+    {% endif %}
+    
+    {% if plumber %}
+    <div class="row">
+        <!-- Stats Cards -->
+        <div class="col-md-3 mb-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Available Leads</h5>
+                    <h2 class="display-4">{{ stats.leads_available }}</h2>
+                    <p class="card-text">Leads in your service area</p>
+                    <a href="{{ url_for('plumber.available_leads') }}" class="btn btn-light">View Leads</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Claimed Leads</h5>
+                    <h2 class="display-4">{{ stats.leads_claimed }}</h2>
+                    <p class="card-text">Leads you've claimed</p>
+                    <a href="{{ url_for('plumber.my_leads') }}" class="btn btn-light">View My Leads</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Lead Credits</h5>
+                    <h2 class="display-4">{{ stats.lead_credits }}</h2>
+                    <p class="card-text">Available credits</p>
+                    <a href="{{ url_for('plumber.purchase_lead_credits') }}" class="btn btn-light">Buy Credits</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Subscription</h5>
+                    <h2 class="display-6">{{ stats.subscription_status|title }}</h2>
+                    <p class="card-text">Your subscription status</p>
+                    <a href="{{ url_for('plumber.subscription') }}" class="btn btn-dark">Manage</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Leads -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Recently Claimed Leads</h5>
+            <a href="{{ url_for('plumber.my_leads') }}" class="btn btn-sm btn-primary">View All</a>
+        </div>
+        <div class="card-body">
+            {% if claimed_leads %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Service</th>
+                            <th>Location</th>
+                            <th>Claimed On</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in claimed_leads %}
+                        <tr>
+                            <td>{{ item.lead.customer_name }}</td>
+                            <td>
+                                {% if item.lead.service_needed|length > 0 %}
+                                    {{ item.lead.service_needed[0]|replace('_', ' ')|title }}
+                                    {% if item.lead.service_needed|length > 1 %}
+                                    <span class="badge bg-secondary">+{{ item.lead.service_needed|length - 1 }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ item.lead.city }}, {{ item.lead.state }}</td>
+                            <td>{{ item.claim.claimed_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if item.claim.status == 'completed' else 'primary' if item.claim.status == 'contacted' else 'warning' }}">
+                                    {{ item.claim.status|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('plumber.view_lead', lead_id=item.lead.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                You haven't claimed any leads yet. <a href="{{ url_for('plumber.available_leads') }}">Browse available leads</a>.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Quick Links -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('plumber.available_leads') }}" class="btn btn-primary">Find New Leads</a>
+                        <a href="{{ url_for('plumber.my_leads') }}" class="btn btn-outline-primary">Manage My Leads</a>
+                        <a href="{{ url_for('plumber.complete_profile') }}" class="btn btn-outline-secondary">Update Profile</a>
+                        <a href="{{ url_for('plumber.subscription') }}" class="btn btn-outline-secondary">Manage Subscription</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Company Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Company:</strong> {{ plumber.company_name }}</p>
+                    <p><strong>Contact:</strong> {{ plumber.contact_name }}</p>
+                    <p><strong>Email:</strong> {{ plumber.email }}</p>
+                    <p><strong>Phone:</strong> {{ plumber.phone }}</p>
+                    <p><strong>Service Area:</strong> {{ plumber.service_radius }} miles around {{ plumber.city }}, {{ plumber.state }}</p>
+                    <a href="{{ url_for('plumber.complete_profile') }}" class="btn btn-sm btn-outline-primary">Edit Profile</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <h4 class="alert-heading">Complete Your Profile</h4>
+        <p>Please complete your profile to access the dashboard and start receiving leads.</p>
+        <hr>
+        <a href="{{ url_for('plumber.complete_profile') }}" class="btn btn-primary">Complete Profile</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

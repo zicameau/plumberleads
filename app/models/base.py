@@ -218,8 +218,7 @@ def init_db(app):
     with app.app_context():
         # Import here to avoid circular imports
         from app.models.base import Base
-        # This doesn't actually create the tables if using Supabase
-        # We'll rely on our reset_db.py script instead
-        # Base.metadata.create_all(db.engine)
+        # Uncomment this line to create tables
+        Base.metadata.create_all(db.engine)
         
     return db

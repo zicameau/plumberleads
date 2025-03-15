@@ -5,6 +5,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_mail import Mail
 from app.utils.logging_config import setup_logging
+from datetime import datetime
 
 # Initialize SQLAlchemy
 from app.models.base import db
@@ -45,6 +46,14 @@ def create_app(config_name=None):
     # Set up logging
     loggers = setup_logging(app)
     app.loggers = loggers
+    
+    # Add custom Jinja filters
+    @app.template_filter('timestamp_to_date')
+    def timestamp_to_date(timestamp):
+        """Convert a Unix timestamp to a formatted date string."""
+        if not timestamp:
+            return ""
+        return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d')
     
     # Register blueprints
     from app.routes.home import home_bp

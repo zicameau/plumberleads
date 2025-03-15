@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}My Leads{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">My Leads</h1>
+    
+    {% if error %}
+    <div class="alert alert-danger">
+        An error occurred while loading your leads. Please try again.
+    </div>
+    {% endif %}
+    
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Claimed Leads</h5>
+            <div>
+                <form method="GET" class="d-inline">
+                    <div class="input-group">
+                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="all" {% if status_filter == 'all' or not status_filter %}selected{% endif %}>All Status</option>
+                            <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+                            <option value="contacted" {% if status_filter == 'contacted' %}selected{% endif %}>Contacted</option>
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="abandoned" {% if status_filter == 'abandoned' %}selected{% endif %}>Abandoned</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if claimed_leads %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Service</th>
+                            <th>Location</th>
+                            <th>Claimed On</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in claimed_leads %}
+                        <tr>
+                            <td>{{ item.lead.customer_name }}</td>
+                            <td>
+                                {% if item.lead.service_needed|length > 0 %}
+                                    {{ item.lead.service_needed[0]|replace('_', ' ')|title }}
+                                    {% if item.lead.service_needed|length > 1 %}
+                                    <span class="badge bg-secondary">+{{ item.lead.service_needed|length - 1 }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ item.lead.city }}, {{ item.lead.state }}</td>
+                            <td>{{ item.claim.claimed_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if item.claim.status == 'completed' else 'primary' if item.claim.status == 'contacted' else 'warning' }}">
+                                    {{ item.claim.status|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('plumber.view_lead', lead_id=item.lead.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                <a href="{{ url_for('plumber.update_lead_status', claim_id=item.claim.id) }}" class="btn btn-sm btn-outline-secondary">Update</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                {% if page > 1 %}
+                <a href="{{ url_for('plumber.my_leads', page=page-1, status=status_filter) }}" class="btn btn-outline-primary">Previous</a>
+                {% else %}
+                <button class="btn btn-outline-secondary" disabled>Previous</button>
+                {% endif %}
+                
+                <span>Page {{ page }}</span>
+                
+                {% if has_more %}
+                <a href="{{ url_for('plumber.my_leads', page=page+1, status=status_filter) }}" class="btn btn-outline-primary">Next</a>
+                {% else %}
+                <button class="btn btn-outline-secondary" disabled>Next</button>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                You haven't claimed any leads yet. <a href="{{ url_for('plumber.available_leads') }}">Browse available leads</a>.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Lead Management Tips</h5>
+        </div>
+        <div class="card-body">
+            <ul>
+                <li><strong>New Leads:</strong> Contact these leads as soon as possible for the best chance of conversion.</li>
+                <li><strong>Contacted:</strong> Update the status after you've made contact with the customer.</li>
+                <li><strong>Completed:</strong> Mark leads as completed once you've finished the job.</li>
+                <li><strong>Abandoned:</strong> If you can't service a lead, mark it as abandoned to keep your dashboard organized.</li>
+            </ul>
+            <a href="{{ url_for('plumber.available_leads') }}" class="btn btn-primary">Find More Leads</a>
+        </div>
+    </div>
+</div>
+{% endblock %} 
