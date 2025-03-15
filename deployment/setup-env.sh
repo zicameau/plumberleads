@@ -9,9 +9,6 @@ cp .env.production .env.production.temp
 
 # Append sensitive variables from GitLab CI/CD
 cat >> .env.production.temp << EOF
-
-# The following variables are injected from GitLab CI/CD:
-
 # Database Configuration
 DATABASE_URL=${DATABASE_URL}
 SQLALCHEMY_DATABASE_URI=${SQLALCHEMY_DATABASE_URI}
@@ -26,14 +23,9 @@ SECRET_KEY=${SECRET_KEY}
 DB_PASSWORD=${DB_PASSWORD}
 CI_REGISTRY_IMAGE=${CI_REGISTRY_IMAGE}
 DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
-
-# Add any other required sensitive variables here
 EOF
 
 # Replace the original file with the merged one
 mv .env.production.temp .env.production
 
 echo "Environment file created successfully"
-echo "Verifying environment file contents (excluding sensitive data):"
-# Use cat and grep with || true to prevent pipeline failure
-cat .env.production | grep -v "PASSWORD\|SECRET\|KEY" || true

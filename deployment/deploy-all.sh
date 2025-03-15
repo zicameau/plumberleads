@@ -1,17 +1,38 @@
 #!/bin/bash
-# Script to deploy files to the server
+# Master deployment script that handles all deployment steps
 
 # Exit on error
 set -e
 
-# Check if required variables are set
+echo "=== Starting deployment process ==="
+
+# Step 1: Create environment file
+echo "Creating environment file..."
+cp .env.production .env.production.temp
+cat >> .env.production.temp << EOF
+# Database Configuration
+DATABASE_URL=${DATABASE_URL}
+SQLALCHEMY_DATABASE_URI=${SQLALCHEMY_DATABASE_URI}
+# Supabase Configuration
+SUPABASE_KEY=${SUPABASE_KEY}
+# Application Configuration
+SECRET_KEY=${SECRET_KEY}
+# Docker Configuration
+DB_PASSWORD=${DB_PASSWORD}
+CI_REGISTRY_IMAGE=${CI_REGISTRY_IMAGE}
+DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
+EOF
+mv .env.production.temp .env.production
+echo "Environment file created successfully"
+
+# Step 2: Check if required variables are set
 if [ -z "$SERVER_USER" ] || [ -z "$SERVER_IP" ]; then
   echo "ERROR: SERVER_USER or SERVER_IP not set"
   exit 1
 fi
 
-# Create directories and copy files
-echo "Creating directories and copying files..."
+# Step 3: Deploy files to server
+echo "Deploying files to server..."
 ssh $SERVER_USER@$SERVER_IP "mkdir -p /opt/plumberleads/traefik/dynamic"
 scp .env.production $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env.production
 scp .env.production $SERVER_USER@$SERVER_IP:/opt/plumberleads/.env
@@ -25,8 +46,8 @@ scp deployment/logging_config.py $SERVER_USER@$SERVER_IP:/opt/plumberleads/loggi
 scp deployment/debug_container.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/debug_container.sh
 scp deployment/verify_env.sh $SERVER_USER@$SERVER_IP:/opt/plumberleads/verify_env.sh
 
-# Run deployment
-echo "Running deployment..."
+# Step 4: Run deployment on server
+echo "Running deployment on server..."
 ssh $SERVER_USER@$SERVER_IP "export CI_REGISTRY=${CI_REGISTRY} && export CI_REGISTRY_USER=${CI_REGISTRY_USER} && export CI_REGISTRY_PASSWORD=${CI_REGISTRY_PASSWORD} && chmod +x /opt/plumberleads/*.sh && /opt/plumberleads/deploy.sh"
 
-echo "Deployment completed" 
+echo "=== Deployment completed successfully ===" 

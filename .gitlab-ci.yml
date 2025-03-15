@@ -1,81 +1,9 @@
 stages:
-  - test
-  - build
   - deploy
 
-variables:
-  DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: ""
-  DOCKER_HOST: tcp://docker:2375
-  DOCKER_IMAGE_NAME: plumberleads
-  DOCKER_IMAGE_TAG: $CI_COMMIT_SHORT_SHA
-
-# Cache dependencies between jobs
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - .pip-cache/
-
-# Test stage
-test:
-  stage: test
-  image: python:3.10-slim
-  services:
-    - name: postgres:14
-      alias: postgres
-  variables:
-    POSTGRES_DB: test_db
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: postgres
-    DATABASE_URL: postgresql://postgres:postgres@postgres:5432/test_db
-    FLASK_ENV: testing
-    PYTHONPATH: $CI_PROJECT_DIR
-  before_script:
-    - pip install -r requirements.txt || echo "No requirements.txt found"
-    - if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; else pip install pytest pytest-flask; fi
-    - mkdir -p tests  # Ensure tests directory exists
-    - mkdir -p app/config  # Ensure config directory exists
-    - mkdir -p app/services/mock  # Ensure mock services directory exists
-    - echo "Running tests..."
-  script:
-    - pip install -r requirements.txt
-    - pip install -r requirements-dev.txt
-    - pytest tests/ -v
-  after_script:
-    - echo "Test stage completed"
-  allow_failure: false  # This ensures the pipeline fails if tests fail
-
-# Build and push Docker image
-build:
-  stage: build
-  image: docker:20.10.16
-  services:
-    - name: docker:20.10.16-dind
-  variables:
-    # Use TLS https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#tls-enabled
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
-    DOCKER_TLS_VERIFY: 1
-    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
-  before_script:
-    - echo "Logging in to GitLab Container Registry..."
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - echo "Building Docker image..."
-    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA -t $CI_REGISTRY_IMAGE:latest .
-    - echo "Pushing Docker image to registry..."
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
-    - docker push $CI_REGISTRY_IMAGE:latest
-  only:
-    - main
-
-# Deploy to production server
 deploy:
   stage: deploy
   image: alpine:latest
-  variables:
-    DOCKER_IMAGE_TAG: $CI_COMMIT_SHORT_SHA
-    FLASK_ENV: production
   before_script:
     - apk add --no-cache openssh-client bash
     - eval $(ssh-agent -s)
@@ -84,23 +12,11 @@ deploy:
     - chmod 700 ~/.ssh
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
-    - chmod +x deployment/setup-env.sh
-    - chmod +x deployment/deploy-files.sh
-    - chmod +x deployment/debug.sh
-    - chmod +x deployment/check_flask_app.sh
-    - chmod +x deployment/debug_container.sh
-    - mkdir -p deployment/traefik/dynamic
+    - chmod +x deployment/deploy-all.sh
   script:
-    - echo "Preparing deployment..."
-    - ./deployment/setup-env.sh || echo "Warning: setup-env.sh exited with non-zero status but continuing"
-    - echo "Verifying environment file exists..."
-    - if [ ! -f .env.production ]; then echo "ERROR: .env.production file not created!"; exit 1; fi
-    - echo "Deploying files to server..."
-    - ./deployment/deploy-files.sh
+    - ./deployment/deploy-all.sh
   environment:
     name: development
     url: http://$SERVER_IP
   only:
     - main
-  needs:
-    - build
