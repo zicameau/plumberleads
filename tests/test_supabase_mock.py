@@ -88,7 +88,7 @@ def test_supabase_mock_get_user():
     mock = SupabaseMock()
     
     # Test get_user with admin token
-    response = mock.auth.get_user('mock-token-admin-user-id')
+    response = mock.auth.get_user('mock-token-admin')
     
     assert response is not None
     assert response.user is not None

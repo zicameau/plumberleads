@@ -7,11 +7,11 @@ export SQLALCHEMY_DATABASE_URI="sqlite:///test.db"
 
 # Initialize the database
 echo "Initializing test database..."
-python init_db.py
+python3 init_db.py
 
 # Run the tests
 echo "Running tests..."
-pytest
+python3 -m pytest
 
 # Return the exit code from pytest
 exit $? 

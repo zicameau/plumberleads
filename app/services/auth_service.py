@@ -7,6 +7,7 @@ from flask import current_app, request, g, jsonify, session, flash, redirect, ur
 from app.models.base import db, User, Plumber, UserRole
 from supabase import create_client, Client
 from .mock.supabase_mock import SupabaseMock
+import uuid
 
 # Get the auth logger
 logger = logging.getLogger('auth')
@@ -106,10 +107,11 @@ def init_admin_user():
                     except Exception as e:
                         logger.error(f"Error managing admin user in Supabase: {str(e)}", exc_info=True)
                         # Continue with local database creation even if Supabase fails
-                        admin_id = "admin-user-id"
+                        # Generate a valid UUID for admin user
+                        admin_id = str(uuid.uuid4())
                 else:
-                    # For testing, use a fixed ID
-                    admin_id = "admin-user-id"
+                    # For testing, use a fixed UUID
+                    admin_id = '123e4567-e89b-12d3-a456-426614174000'  # Valid UUID format
                 
                 # Create admin user in local database
                 admin_user = User(
@@ -133,6 +135,17 @@ def sync_user_to_db(supabase_user):
         email = supabase_user.email
         metadata = supabase_user.user_metadata or {}
         role = metadata.get('role', 'plumber')
+        
+        # Ensure user_id is a valid UUID
+        try:
+            # Try to parse the ID as UUID to validate it
+            uuid_obj = uuid.UUID(user_id)
+            # Use the string representation of the UUID
+            user_id = str(uuid_obj)
+        except ValueError:
+            # If it's not a valid UUID, generate a new one
+            logger.warning(f"Invalid UUID format: {user_id}. Generating a new UUID.")
+            user_id = str(uuid.uuid4())
         
         # Check if the users table exists
         try:

@@ -10,7 +10,7 @@ class AuthMock:
         self.users = {}
         # Pre-register admin user
         admin_user = MockUser(
-            id='admin-user-id',
+            id='123e4567-e89b-12d3-a456-426614174000',  # Valid UUID format
             email='admin@example.com',
             user_metadata={'role': 'admin', 'name': 'Admin User'}
         )
@@ -26,10 +26,11 @@ class AuthMock:
         options = credentials.get('options', {})
         user_metadata = options.get('data', {})
         
-        # Generate a mock user ID
-        user_id = 'mock-user-id'
+        # Generate a mock user ID in valid UUID format
+        import uuid
+        user_id = str(uuid.uuid4())
         if email == 'admin@example.com':
-            user_id = 'admin-user-id'
+            user_id = '123e4567-e89b-12d3-a456-426614174000'  # Consistent UUID for admin
         
         user = MockUser(
             id=user_id,
@@ -59,14 +60,15 @@ class AuthMock:
         elif email == 'admin@example.com' and password == 'admin123':
             # Special case for admin user
             user = MockUser(
-                id='admin-user-id',
+                id='123e4567-e89b-12d3-a456-426614174000',  # Valid UUID format
                 email='admin@example.com',
                 user_metadata={'role': 'admin', 'name': 'Admin User'}
             )
         else:
             # For testing, accept any credentials with default plumber role
+            import uuid
             user = MockUser(
-                id='mock-user-id',
+                id=str(uuid.uuid4()),  # Generate a valid UUID
                 email=email,
                 user_metadata={'role': 'plumber'}
             )
@@ -85,16 +87,17 @@ class AuthMock:
     def get_user(self, token):
         """Mock get user method for token verification"""
         # Special case for admin token
-        if token == 'mock-token-admin-user-id':
+        if token == 'mock-token-admin':
             user = MockUser(
-                id='admin-user-id',
+                id='123e4567-e89b-12d3-a456-426614174000',  # Valid UUID format
                 email='admin@example.com',
                 user_metadata={'role': 'admin', 'name': 'Admin User'}
             )
         else:
             # For testing, return a mock user with plumber role
+            import uuid
             user = MockUser(
-                id='mock-user-id',
+                id=str(uuid.uuid4()),  # Generate a valid UUID
                 email='test@example.com',
                 user_metadata={'role': 'plumber'}
             )
