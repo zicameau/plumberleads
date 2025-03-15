@@ -65,7 +65,6 @@ def sync_user_to_db(supabase_user):
     db.session.commit()
     return user
 
-# Placeholder functions for auth service
 def signup(email, password, user_metadata=None):
     """Register a new user using Supabase Auth."""
     logger.info(f"Signup attempt for {email} with role {user_metadata.get('role') if user_metadata else 'customer'}")
@@ -104,116 +103,71 @@ def signup(email, password, user_metadata=None):
         raise
 
 def login(email, password):
-    """Log in a user."""
+    """Log in a user using Supabase Auth."""
     logger.info(f"Login attempt for {email}")
     
-    # In production, this would use Supabase Auth
-    # supabase = get_supabase()
-    # result = supabase.auth.sign_in_with_password({"email": email, "password": password})
-    
-    # For development/testing, we'll use local authentication
-    
-    # Check for admin credentials
-    if email == 'admin@example.com' and password == 'admin123':
-        # Create a mock session and user object
-        class MockSession:
-            def __init__(self, token):
-                self.access_token = token
-                
-        class MockUser:
-            def __init__(self, id, email, metadata):
-                self.id = id
-                self.email = email
-                self.user_metadata = metadata
-                
-        token = generate_token({"id": "admin-user-id", "email": email, "role": "admin"})
-        session = MockSession(token)
-        user = MockUser("admin-user-id", email, {"role": "admin", "name": "Admin User"})
-        
-        # Create/update user in the local database
-        with current_app.app_context():
-            db_user = db.session.query(User).filter_by(email=email).first()
-            if not db_user:
-                db_user = User(id="admin-user-id", email=email, role=UserRole.admin)
-                db.session.add(db_user)
-                db.session.commit()
-        
-        logger.info(f"Admin login successful for {email}")
-        return {"session": session, "user": user}
-    
-    # For plumber users (simplified auth for development)
     try:
-        # Check if user exists in local database
-        with current_app.app_context():
-            db_user = db.session.query(User).filter_by(email=email).first()
+        # Get Supabase client
+        supabase = get_supabase()
+        
+        # Attempt login with Supabase
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": email,
+            "password": password
+        })
+        
+        if auth_response.user and auth_response.session:
+            logger.info(f"User {email} logged in successfully with Supabase Auth")
             
-            # For development, accept any password for registered users
-            if db_user:
-                user_id = db_user.id
-                role = db_user.role.value
-                
-                # Create session and user objects
-                class MockSession:
-                    def __init__(self, token):
-                        self.access_token = token
-                        
-                class MockUser:
-                    def __init__(self, id, email, metadata):
-                        self.id = id
-                        self.email = email
-                        self.user_metadata = metadata
-                
-                # Check if this is a plumber and get additional info
-                plumber = db.session.query(Plumber).filter_by(user_id=user_id).first()
-                company_name = plumber.company_name if plumber else "Unknown Company"
-                
-                token = generate_token({"id": str(user_id), "email": email, "role": role})
-                session = MockSession(token)
-                metadata = {"role": role, "company_name": company_name}
-                user = MockUser(str(user_id), email, metadata)
-                
-                logger.info(f"User login successful for {email} with role {role}")
-                return {"session": session, "user": user}
+            # Sync user to local database
+            try:
+                with current_app.app_context():
+                    user = sync_user_to_db(auth_response.user)
+                    logger.info(f"User {email} synced to local database with ID {user.id}")
+            except Exception as e:
+                logger.error(f"Error syncing user {email} to local database: {str(e)}", exc_info=True)
+            
+            return {
+                "session": auth_response.session,
+                "user": auth_response.user
+            }
+        else:
+            logger.warning(f"Login failed for {email} - invalid credentials")
+            return None
+            
     except Exception as e:
         logger.error(f"Error during login for {email}: {str(e)}", exc_info=True)
-    
-    # Invalid credentials
-    logger.warning(f"Failed login attempt for {email}")
-    return None
+        return None
 
 def logout(token):
-    """Log out a user by invalidating their token."""
+    """Log out a user by invalidating their token in Supabase Auth."""
     logger.info("Logout requested")
     
     try:
-        # Decode token to get user info for logging
-        payload = jwt.decode(
-            token, 
-            os.environ.get('SECRET_KEY', 'dev-secret-key'),
-            algorithms=['HS256']
-        )
-        user_id = payload.get('sub')
-        logger.info(f"User {user_id} logged out successfully")
+        # Get Supabase client
+        supabase = get_supabase()
         
-        # In a real implementation, this would invalidate the token in Supabase Auth
-        # supabase = get_supabase()
-        # supabase.auth.sign_out(token)
+        # Sign out the user
+        supabase.auth.sign_out()
+        logger.info("User logged out successfully from Supabase Auth")
         
+        return True
     except Exception as e:
-        logger.warning(f"Logout with invalid token: {str(e)}")
-    
-    return True
+        logger.warning(f"Error during logout: {str(e)}")
+        return False
 
 def reset_password_request(email):
-    """Request a password reset."""
+    """Request a password reset via Supabase Auth."""
     logger.info(f"Password reset requested for {email}")
     
     try:
-        # In a real implementation, this would send a reset email via Supabase Auth
-        # supabase = get_supabase()
-        # supabase.auth.reset_password_email(email)
+        # Get Supabase client
+        supabase = get_supabase()
         
-        # For development, just return success
+        # Send password reset email
+        supabase.auth.reset_password_for_email(email)
+        logger.info(f"Password reset email sent to {email}")
+        
         return True
     except Exception as e:
         logger.error(f"Error requesting password reset for {email}: {str(e)}", exc_info=True)
@@ -287,51 +241,41 @@ def token_required(f):
             return redirect(url_for('auth.login'))
         
         try:
-            # Decode token
-            payload = jwt.decode(
-                token, 
-                os.environ.get('SECRET_KEY', 'dev-secret-key'),
-                algorithms=['HS256']
-            )
+            # Get Supabase client
+            supabase = get_supabase()
+            
+            # Verify token with Supabase
+            # This will throw an exception if the token is invalid or expired
+            auth_response = supabase.auth.get_user(token)
+            
+            if not auth_response or not auth_response.user:
+                raise Exception("Invalid token - user not found")
             
             # Set user info in Flask g object for access in the route
+            user = auth_response.user
+            user_metadata = user.user_metadata or {}
+            
             g.user = {
-                'id': payload['sub'],
-                'email': payload.get('email'),
-                'role': payload.get('role')
+                'id': user.id,
+                'email': user.email,
+                'role': user_metadata.get('role', 'customer')
             }
             
             logger.info(f"[{request_id}] Successfully authenticated user {g.user['id']} with role {g.user.get('role')}")
             return f(*args, **kwargs)
-        except jwt.ExpiredSignatureError:
-            logger.warning(f"[{request_id}] Expired token for request to {request.path}")
+        except Exception as e:
+            logger.warning(f"[{request_id}] Authentication error for request to {request.path}: {str(e)}")
             
             # Clear session
             session.clear()
             
             # For API routes, return JSON response
             if request.path.startswith('/api/'):
-                return jsonify({'message': 'Token expired'}), 401
+                return jsonify({'message': 'Authentication failed'}), 401
             
             # For web routes, redirect to login
             flash('Your session has expired. Please log in again.', 'warning')
             return redirect(url_for('auth.login'))
-        except jwt.InvalidTokenError as e:
-            logger.warning(f"[{request_id}] Invalid token for request to {request.path}: {str(e)}")
-            
-            # Clear session
-            session.clear()
-            
-            # For API routes, return JSON response
-            if request.path.startswith('/api/'):
-                return jsonify({'message': 'Invalid token'}), 401
-            
-            # For web routes, redirect to login
-            flash('Authentication error. Please log in again.', 'warning')
-            return redirect(url_for('auth.login'))
-        except Exception as e:
-            logger.error(f"[{request_id}] Unexpected error during authentication: {str(e)}", exc_info=True)
-            return jsonify({'message': 'Authentication error'}), 500
     
     return decorated
 
