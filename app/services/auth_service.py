@@ -358,9 +358,20 @@ def token_required(f):
     def decorated(*args, **kwargs):
         request_id = f"req-{datetime.utcnow().timestamp()}"
         
-        # Check if token exists in session
-        if 'token' not in session:
-            logger.warning(f"[{request_id}] No token found in session for request to {request.path}")
+        # Get token from Authorization header or session
+        token = None
+        
+        # Check Authorization header first
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        
+        # If no token in header, check session
+        if not token and 'token' in session:
+            token = session['token']
+        
+        if not token:
+            logger.warning(f"[{request_id}] No token found for request to {request.path}")
             
             # For API routes, return JSON response
             if request.path.startswith('/api/'):
@@ -371,9 +382,6 @@ def token_required(f):
             return redirect(url_for('auth.login'))
         
         try:
-            # Get token from session
-            token = session['token']
-            
             # Get Supabase client
             supabase = get_supabase()
             
