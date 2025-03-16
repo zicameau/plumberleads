@@ -270,25 +270,24 @@ def login(email, password):
         if auth_response.user and auth_response.session:
             logger.info(f"User {email} logged in successfully with Supabase Auth")
             
-            # Sync user to local database
-            try:
-                with current_app.app_context():
-                    user = sync_user_to_db(auth_response.user)
-                    logger.info(f"User {email} synced to local database with ID {user.id}")
-            except Exception as e:
-                logger.error(f"Error syncing user {email} to local database: {str(e)}", exc_info=True)
+            # Get user metadata
+            user_metadata = auth_response.user.user_metadata or {}
+            role = user_metadata.get('role', 'customer')
+            
+            # Log the user metadata for debugging
+            logger.info(f"User metadata: {user_metadata}")
             
             return {
-                "session": auth_response.session,
-                "user": auth_response.user
+                'session': auth_response.session,
+                'user': auth_response.user
             }
         else:
-            logger.warning(f"Login failed for {email} - invalid credentials")
+            logger.warning(f"Login failed for {email}")
             return None
             
     except Exception as e:
         logger.error(f"Error during login for {email}: {str(e)}", exc_info=True)
-        return None
+        raise
 
 def logout(token):
     """Log out a user by invalidating their token in Supabase Auth."""
@@ -359,44 +358,26 @@ def token_required(f):
     def decorated(*args, **kwargs):
         request_id = f"req-{datetime.utcnow().timestamp()}"
         
-        # Skip authentication for login and registration routes
-        if request.endpoint and (
-            request.endpoint.startswith('auth.login') or 
-            request.endpoint.startswith('auth.register') or
-            request.endpoint.startswith('home.') or
-            request.endpoint == 'static'
-        ):
-            logger.info(f"[{request_id}] Skipping authentication for public route: {request.path}")
-            return f(*args, **kwargs)
-            
-        token = None
-        
-        # Check for token in session
-        if 'token' in session:
-            token = session['token']
-        
-        # Check for token in Authorization header
-        auth_header = request.headers.get('Authorization')
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-        
-        if not token:
-            logger.warning(f"[{request_id}] Token missing for protected route: {request.path}")
+        # Check if token exists in session
+        if 'token' not in session:
+            logger.warning(f"[{request_id}] No token found in session for request to {request.path}")
             
             # For API routes, return JSON response
             if request.path.startswith('/api/'):
-                return jsonify({'message': 'Authentication required'}), 401
+                return jsonify({'message': 'No token provided'}), 401
             
             # For web routes, redirect to login
-            flash('Please log in to access this page', 'warning')
+            flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login'))
         
         try:
+            # Get token from session
+            token = session['token']
+            
             # Get Supabase client
             supabase = get_supabase()
             
-            # Verify token with Supabase
-            # This will throw an exception if the token is invalid or expired
+            # Verify token and get user info
             auth_response = supabase.auth.get_user(token)
             
             if not auth_response or not auth_response.user:
@@ -406,10 +387,16 @@ def token_required(f):
             user = auth_response.user
             user_metadata = user.user_metadata or {}
             
+            # Get role from metadata or default to customer
+            role = user_metadata.get('role', 'customer')
+            
+            # Log the user metadata for debugging
+            logger.info(f"[{request_id}] User metadata: {user_metadata}")
+            
             g.user = {
                 'id': user.id,
                 'email': user.email,
-                'role': user_metadata.get('role', 'customer')
+                'role': role
             }
             
             logger.info(f"[{request_id}] Successfully authenticated user {g.user['id']} with role {g.user.get('role')}")
