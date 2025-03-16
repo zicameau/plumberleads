@@ -21,6 +21,8 @@ SECRET_KEY=${SECRET_KEY}
 DB_PASSWORD=${DB_PASSWORD}
 CI_REGISTRY_IMAGE=${CI_REGISTRY_IMAGE}
 DOCKER_IMAGE_TAG=${DOCKER_IMAGE_TAG}
+# Admin Configuration
+ADMIN_PASSWORD=${ADMIN_PW}
 EOF
 mv .env.production.temp .env.production
 echo "Environment file created successfully"
