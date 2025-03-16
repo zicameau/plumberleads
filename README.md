@@ -93,6 +93,46 @@ Edit the `.env.local` file with your development credentials:
 
 **Important**: Never commit your actual `.env.*` files to the repository. They contain sensitive information and are already added to `.gitignore`.
 
+### GitLab Variables Setup
+
+For production deployment, sensitive environment variables should be configured in GitLab:
+
+1. Go to your GitLab project settings
+2. Navigate to Settings > CI/CD > Variables
+3. Add the following required variables:
+   - `SUPABASE_URL`: Your Supabase project URL
+   - `SUPABASE_KEY`: Your Supabase anon/public key
+   - `SUPABASE_SERVICE_KEY`: Your Supabase service role key (from Project Settings > API > service_role key)
+   - `ADMIN_EMAIL`: Admin user email (default: admin@example.com)
+   - `ADMIN_PASSWORD`: Admin user password
+   - `DB_PASSWORD`: PostgreSQL database password
+   - `STRIPE_API_KEY`: Your Stripe secret key
+   - `STRIPE_WEBHOOK_SECRET`: Your Stripe webhook signing secret
+   - `EMAIL_SERVICE_API_KEY`: Your email service API key
+   - `SMS_SERVICE_API_KEY`: Your SMS service API key
+
+For each variable:
+- Type: Variable
+- Environment scope: All (or your specific environment)
+- Protect variable: Yes
+- Mask variable: Yes (for sensitive values)
+
+**Important**: The `SUPABASE_SERVICE_KEY` is required for proper admin user initialization. This key has elevated privileges and should be kept secure.
+
+### Manual Admin User Setup
+
+Before running the application, you need to manually create the admin user in Supabase:
+
+1. Go to your Supabase project dashboard (https://app.supabase.com)
+2. Navigate to Authentication > Users
+3. Click "Invite user"
+4. Enter the following details:
+   - Email: admin@example.com
+   - Password: admin123
+   - User metadata: `{"role": "admin", "name": "Admin User"}`
+
+This step is required because the automatic admin user creation might fail due to Supabase's security policies or email verification requirements.
+
 ### Development Workflow
 
 The project is configured for rapid development with automatic database resets. This approach allows for quick iterations without worrying about migrations during early development.

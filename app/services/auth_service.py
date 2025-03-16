@@ -8,6 +8,7 @@ from app.models.base import db, User, Plumber, UserRole
 from supabase import create_client, Client
 from .mock.supabase_mock import SupabaseMock
 import uuid
+import requests
 
 # Get the auth logger
 logger = logging.getLogger('auth')
@@ -43,9 +44,14 @@ def init_admin_user():
     """Initialize admin user in Supabase and local database if it doesn't exist."""
     admin_email = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
     admin_password = os.environ.get('ADMIN_PASSWORD')
+    supabase_service_key = os.environ.get('SUPABASE_SERVICE_KEY')
     
     if not admin_password:
         logger.warning("ADMIN_PASSWORD environment variable not set. Admin user will not be created.")
+        return
+    
+    if not supabase_service_key:
+        logger.warning("SUPABASE_SERVICE_KEY environment variable not set. Admin user will not be created.")
         return
     
     logger.info(f"Checking if admin user {admin_email} exists")
@@ -61,49 +67,65 @@ def init_admin_user():
                 # Try to create admin user in Supabase if not in testing mode
                 if not current_app.config.get('TESTING', False):
                     try:
-                        supabase = get_supabase()
+                        # Use admin API to create user
+                        headers = {
+                            'apikey': supabase_service_key,
+                            'Authorization': f'Bearer {supabase_service_key}',
+                            'Content-Type': 'application/json'
+                        }
                         
-                        # Check if user exists in Supabase
-                        try:
-                            # Try to sign in - if it succeeds, user exists
-                            auth_response = supabase.auth.sign_in_with_password({
-                                "email": admin_email,
-                                "password": admin_password
-                            })
-                            
-                            if auth_response and auth_response.user:
-                                logger.info(f"Admin user {admin_email} exists in Supabase")
-                                admin_id = auth_response.user.id
-                                
-                                # Update user metadata if needed
-                                if not auth_response.user.user_metadata or auth_response.user.user_metadata.get('role') != 'admin':
-                                    logger.info(f"Updating admin user metadata in Supabase")
-                                    # This would require admin access to Supabase
-                                    # In a real implementation, you would use Supabase admin API
-                            else:
-                                raise Exception("User exists but couldn't retrieve details")
-                                
-                        except Exception:
-                            # User doesn't exist, create it
-                            logger.info(f"Creating admin user {admin_email} in Supabase")
-                            
-                            # For now, use regular signup
-                            auth_response = supabase.auth.sign_up({
-                                "email": admin_email,
-                                "password": admin_password,
-                                "options": {
-                                    "data": {
+                        # First check if user exists
+                        response = requests.get(
+                            f"{current_app.config['SUPABASE_URL']}/auth/v1/admin/users",
+                            headers=headers
+                        )
+                        
+                        if response.status_code != 200:
+                            raise Exception(f"Failed to get users: {response.text}")
+                        
+                        users = response.json()
+                        existing_user = next((user for user in users if user['email'] == admin_email), None)
+                        
+                        if existing_user:
+                            # Update existing user's metadata
+                            user_id = existing_user['id']
+                            response = requests.put(
+                                f"{current_app.config['SUPABASE_URL']}/auth/v1/admin/users/{user_id}",
+                                headers=headers,
+                                json={
+                                    "user_metadata": {
                                         "role": "admin",
                                         "name": "Admin User"
                                     }
                                 }
-                            })
+                            )
                             
-                            if auth_response and auth_response.user:
-                                admin_id = auth_response.user.id
-                                logger.info(f"Admin user created in Supabase with ID {admin_id}")
-                            else:
-                                raise Exception("Failed to create admin user in Supabase")
+                            if response.status_code != 200:
+                                raise Exception(f"Failed to update user metadata: {response.text}")
+                            
+                            admin_id = user_id
+                            logger.info(f"Updated existing user {admin_email} with admin role")
+                        else:
+                            # Create new user with admin role
+                            response = requests.post(
+                                f"{current_app.config['SUPABASE_URL']}/auth/v1/admin/users",
+                                headers=headers,
+                                json={
+                                    "email": admin_email,
+                                    "password": admin_password,
+                                    "email_confirm": True,
+                                    "user_metadata": {
+                                        "role": "admin",
+                                        "name": "Admin User"
+                                    }
+                                }
+                            )
+                            
+                            if response.status_code != 200:
+                                raise Exception(f"Failed to create admin user: {response.text}")
+                            
+                            admin_id = response.json()['id']
+                            logger.info(f"Created new admin user {admin_email} with ID {admin_id}")
                     except Exception as e:
                         logger.error(f"Error managing admin user in Supabase: {str(e)}", exc_info=True)
                         # Continue with local database creation even if Supabase fails
