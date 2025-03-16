@@ -20,17 +20,22 @@ def test_token_required_decorator(app, client, monkeypatch):
         def protected_route():
             return {'success': True, 'user_id': g.user['id'], 'role': g.user['role']}
         
-        # Login to get a token
-        result = login('admin@example.com', 'admin123')
-        assert result is not None
-        token = result['session'].access_token
+        # Mock the token verification to set up g.user
+        def mock_verify_token(token):
+            if token == 'mock-token-admin':
+                g.user = {
+                    'id': 'test-admin-id',
+                    'role': 'admin'
+                }
+                return True
+            return False
         
-        # Force the token to be recognized as an admin token
-        token = 'mock-token-admin'
+        # Patch the verify_token function
+        monkeypatch.setattr('app.services.auth_service.verify_token', mock_verify_token)
         
         # Test accessing the protected route with a valid token in the header
         response = client.get('/test/protected', headers={
-            'Authorization': f'Bearer {token}'
+            'Authorization': f'Bearer mock-token-admin'
         })
         
         assert response.status_code == 200
@@ -39,7 +44,7 @@ def test_token_required_decorator(app, client, monkeypatch):
         
         # Test accessing the protected route with a valid token in the session
         with client.session_transaction() as sess:
-            sess['token'] = token
+            sess['token'] = 'mock-token-admin'
         
         response = client.get('/test/protected')
         assert response.status_code == 200
@@ -72,16 +77,28 @@ def test_admin_required_decorator(app, client, monkeypatch):
         def plumber_route():
             return {'success': True, 'role': g.user['role']}
         
-        # Login as admin to get a token
-        result = login('admin@example.com', 'admin123')
-        assert result is not None
+        # Mock the token verification to set up g.user
+        def mock_verify_token(token):
+            if token == 'mock-token-admin':
+                g.user = {
+                    'id': 'test-admin-id',
+                    'role': 'admin'
+                }
+                return True
+            elif token == 'mock-token-plumber':
+                g.user = {
+                    'id': 'test-plumber-id',
+                    'role': 'plumber'
+                }
+                return True
+            return False
         
-        # Force the token to be recognized as an admin token
-        admin_token = 'mock-token-admin'
+        # Patch the verify_token function
+        monkeypatch.setattr('app.services.auth_service.verify_token', mock_verify_token)
         
         # Test accessing the admin route with an admin token
         response = client.get('/test/admin', headers={
-            'Authorization': f'Bearer {admin_token}'
+            'Authorization': f'Bearer mock-token-admin'
         })
         
         assert response.status_code == 200
@@ -90,26 +107,15 @@ def test_admin_required_decorator(app, client, monkeypatch):
         
         # Test accessing the plumber route with an admin token (should fail)
         response = client.get('/test/plumber', headers={
-            'Authorization': f'Bearer {admin_token}'
+            'Authorization': f'Bearer mock-token-admin'
         })
         
         assert response.status_code == 403
         assert response.json['message'] == 'Plumber role required'
         
-        # Create a plumber user and login
-        result = login('test_plumber@example.com', 'password123')
-        if result is None:
-            # If the user doesn't exist, create it
-            from app.services.auth_service import signup
-            signup('test_plumber@example.com', 'password123', {'role': 'plumber'})
-            result = login('test_plumber@example.com', 'password123')
-        
-        assert result is not None
-        plumber_token = result['session'].access_token
-        
         # Test accessing the plumber route with a plumber token
         response = client.get('/test/plumber', headers={
-            'Authorization': f'Bearer {plumber_token}'
+            'Authorization': f'Bearer mock-token-plumber'
         })
         
         assert response.status_code == 200
@@ -118,7 +124,7 @@ def test_admin_required_decorator(app, client, monkeypatch):
         
         # Test accessing the admin route with a plumber token (should fail)
         response = client.get('/test/admin', headers={
-            'Authorization': f'Bearer {plumber_token}'
+            'Authorization': f'Bearer mock-token-plumber'
         })
         
         assert response.status_code == 403
