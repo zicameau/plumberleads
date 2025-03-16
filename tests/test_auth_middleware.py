@@ -20,18 +20,20 @@ def test_token_required_decorator(app, client, monkeypatch):
         def protected_route():
             return {'success': True, 'user_id': g.user['id'], 'role': g.user['role']}
         
-        # Mock the token verification to set up g.user
-        def mock_verify_token(token):
+        # Mock the Supabase get_user method
+        def mock_get_user(token):
             if token == 'mock-token-admin':
-                g.user = {
-                    'id': 'test-admin-id',
-                    'role': 'admin'
-                }
-                return True
-            return False
+                from collections import namedtuple
+                User = namedtuple('User', ['id', 'email', 'user_metadata'])
+                return namedtuple('AuthResponse', ['user'])(user=User(
+                    id='test-admin-id',
+                    email='admin@example.com',
+                    user_metadata={'role': 'admin'}
+                ))
+            return None
         
-        # Patch the verify_token function
-        monkeypatch.setattr('app.services.auth_service.verify_token', mock_verify_token)
+        # Patch the Supabase get_user method
+        monkeypatch.setattr('app.services.auth_service.get_supabase().auth.get_user', mock_get_user)
         
         # Test accessing the protected route with a valid token in the header
         response = client.get('/test/protected', headers={
@@ -77,24 +79,26 @@ def test_admin_required_decorator(app, client, monkeypatch):
         def plumber_route():
             return {'success': True, 'role': g.user['role']}
         
-        # Mock the token verification to set up g.user
-        def mock_verify_token(token):
+        # Mock the Supabase get_user method
+        def mock_get_user(token):
+            from collections import namedtuple
+            User = namedtuple('User', ['id', 'email', 'user_metadata'])
             if token == 'mock-token-admin':
-                g.user = {
-                    'id': 'test-admin-id',
-                    'role': 'admin'
-                }
-                return True
+                return namedtuple('AuthResponse', ['user'])(user=User(
+                    id='test-admin-id',
+                    email='admin@example.com',
+                    user_metadata={'role': 'admin'}
+                ))
             elif token == 'mock-token-plumber':
-                g.user = {
-                    'id': 'test-plumber-id',
-                    'role': 'plumber'
-                }
-                return True
-            return False
+                return namedtuple('AuthResponse', ['user'])(user=User(
+                    id='test-plumber-id',
+                    email='plumber@example.com',
+                    user_metadata={'role': 'plumber'}
+                ))
+            return None
         
-        # Patch the verify_token function
-        monkeypatch.setattr('app.services.auth_service.verify_token', mock_verify_token)
+        # Patch the Supabase get_user method
+        monkeypatch.setattr('app.services.auth_service.get_supabase().auth.get_user', mock_get_user)
         
         # Test accessing the admin route with an admin token
         response = client.get('/test/admin', headers={
