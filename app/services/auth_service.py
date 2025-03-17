@@ -13,32 +13,45 @@ import requests
 # Get the auth logger
 logger = logging.getLogger('auth')
 
-# Global variable to store Supabase client
-_supabase_client = None
+class SupabaseClient:
+    _instance = None
+    _client = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def get_client(self):
+        if self._client is None:
+            raise RuntimeError("Supabase client not initialized")
+        return self._client
+
+    def set_client(self, client):
+        self._client = client
 
 def init_supabase(url, key, testing=False):
     """Initialize the Supabase client."""
-    global _supabase_client
-    
     # Use mock client for testing
     if testing:
         logger.info("Using mock Supabase client for testing")
-        _supabase_client = SupabaseMock()
-        return _supabase_client
-        
-    try:
-        _supabase_client = create_client(url, key)
-        logger.info("Supabase client initialized successfully")
-        return _supabase_client
-    except Exception as e:
-        logger.error(f"Failed to initialize Supabase client: {str(e)}", exc_info=True)
-        raise
+        client = SupabaseMock()
+    else:
+        try:
+            client = create_client(url, key)
+            logger.info("Supabase client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Supabase client: {str(e)}", exc_info=True)
+            raise
+    
+    # Set the client in the singleton
+    SupabaseClient.get_instance().set_client(client)
+    return client
 
 def get_supabase():
     """Get the Supabase client instance."""
-    if not _supabase_client:
-        raise RuntimeError("Supabase client not initialized")
-    return _supabase_client
+    return SupabaseClient.get_instance().get_client()
 
 def init_admin_user():
     """Initialize admin user in Supabase and local database if it doesn't exist."""
