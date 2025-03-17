@@ -157,14 +157,14 @@ def handle_login():
     return render_template('auth/login.html')
 
 @auth_bp.route('/logout')
-def logout_route():
+def handle_logout():
     """Logout route."""
     if logout():
         flash('You have been logged out.', 'success')
     return redirect(url_for('home.index'))
 
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
-def reset_password_route():
+def handle_reset_password():
     """Password reset request page."""
     if request.method == 'POST':
         email = request.form.get('email')
@@ -172,7 +172,7 @@ def reset_password_route():
             flash('Password reset instructions have been sent to your email.', 'success')
         else:
             flash('Failed to send password reset instructions. Please try again.', 'error')
-        return redirect(url_for('auth.login'))
+        return redirect(url_for('auth.handle_login'))
     
     return render_template('auth/reset_password.html')
 
@@ -183,7 +183,7 @@ def confirm_email():
     # The token is handled by Supabase automatically
     
     flash('Your email has been confirmed. You can now log in.', 'success')
-    return redirect(url_for('auth.login'))
+    return redirect(url_for('auth.handle_login'))
 
 @auth_bp.route('/api/login', methods=['POST'])
 def api_login():

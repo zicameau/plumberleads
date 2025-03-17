@@ -67,10 +67,9 @@ def test_route_registration():
     with app.test_request_context():
         # Test core routes
         assert url_for('home.index') is not None
-        assert url_for('auth.login') is not None
-        assert url_for('auth.register_plumber') is not None
-        assert url_for('auth.logout_route') is not None
-        assert url_for('auth.reset_password_route') is not None
+        assert url_for('auth.handle_login') is not None
+        assert url_for('auth.handle_logout') is not None
+        assert url_for('auth.handle_reset_password') is not None
         assert url_for('auth.api_login') is not None
         assert url_for('auth.api_register_plumber') is not None
 
