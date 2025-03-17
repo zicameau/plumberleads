@@ -2,7 +2,7 @@ import pytest
 import os
 import sys
 from flask import session, g
-from app.services.auth_service import init_admin_user, login, signup, logout, reset_password_request
+from app.services.auth_service import init_admin_user, login, signup, logout, reset_password
 from app.models.base import db, User, UserRole
 
 # Add the parent directory to sys.path to allow importing from the app package
@@ -139,4 +139,4 @@ def test_direct_auth_service_functions(app):
         assert logout(result['session'].access_token) is True
         
         # Test reset password function
-        assert reset_password_request('test_direct@example.com') is True
+        assert reset_password('test_direct@example.com') is True
