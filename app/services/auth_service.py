@@ -324,7 +324,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if not get_current_user():
             flash('Please log in to access this page.', 'error')
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login_route'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -406,7 +406,7 @@ def token_required(f):
             
             # For web routes, redirect to login
             flash('Please log in to access this page.', 'warning')
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login_route'))
         
         try:
             # Get Supabase client
@@ -448,6 +448,6 @@ def token_required(f):
             
             # For web routes, redirect to login
             flash('Your session has expired. Please log in again.', 'warning')
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login_route'))
     
     return decorated
