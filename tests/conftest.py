@@ -3,6 +3,8 @@ import os
 import sys
 from app.services.mock.supabase_mock import SupabaseMock
 from app.models.base import db, Base
+from app import create_app, db as _db
+from config import TestConfig
 
 # Add the parent directory to sys.path to allow importing from the app package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -31,3 +33,34 @@ def setup_database(app):
         db.session.remove()
         # Optionally drop all tables after tests
         # Base.metadata.drop_all(db.engine) 
+
+@pytest.fixture
+def app():
+    """Create application for the tests."""
+    _app = create_app(TestConfig)
+    _app.config['TESTING'] = True
+    
+    # Create app context
+    ctx = _app.app_context()
+    ctx.push()
+
+    yield _app
+
+    ctx.pop()
+
+@pytest.fixture
+def client(app):
+    """Get test client."""
+    return app.test_client()
+
+@pytest.fixture
+def db(app):
+    """Create database for the tests."""
+    with app.app_context():
+        _db.create_all()
+
+    yield _db
+
+    # Cleanup after test
+    _db.session.remove()
+    _db.drop_all() 
