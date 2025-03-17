@@ -2,7 +2,7 @@ import pytest
 import os
 import sys
 from flask import session, g
-from app.services.auth_service import init_admin_user, login, signup, logout, reset_password_request
+from app.services.auth_service import init_admin_user, login, signup, logout, reset_password
 from app.models.base import db, User, UserRole
 
 # Add the parent directory to sys.path to allow importing from the app package

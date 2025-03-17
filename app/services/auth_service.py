@@ -9,6 +9,8 @@ from supabase import create_client, Client
 from .mock.supabase_mock import SupabaseMock
 import uuid
 import requests
+from app.models.plumber import Plumber
+from app.services.supabase import supabase
 
 # Get the auth logger
 logger = logging.getLogger('auth')
@@ -150,144 +152,101 @@ def init_admin_user():
         logger.error(f"Error initializing admin user: {str(e)}", exc_info=True)
 
 def sync_user_to_db(supabase_user):
-    """Sync a Supabase user to the local database."""
+    """Sync Supabase user to local database."""
     try:
-        # Extract user information
-        user_id = supabase_user.id
-        email = supabase_user.email
-        metadata = supabase_user.user_metadata or {}
-        role = metadata.get('role', 'plumber')
+        # Check if user exists
+        user = User.query.filter_by(id=supabase_user.id).first()
         
-        # Ensure user_id is a valid UUID
-        try:
-            # Try to parse the ID as UUID to validate it
-            uuid_obj = uuid.UUID(user_id)
-            # Use the string representation of the UUID
-            user_id = str(uuid_obj)
-        except ValueError:
-            # If it's not a valid UUID, generate a new one
-            logger.warning(f"Invalid UUID format: {user_id}. Generating a new UUID.")
-            user_id = str(uuid.uuid4())
+        if not user:
+            # Create new user
+            user = User(
+                id=supabase_user.id,
+                email=supabase_user.email,
+                role=UserRole(supabase_user.user_metadata.get('role', 'customer')),
+                created_at=datetime.fromisoformat(supabase_user.created_at),
+                updated_at=datetime.fromisoformat(supabase_user.updated_at)
+            )
+            db.session.add(user)
+        else:
+            # Update existing user
+            user.email = supabase_user.email
+            user.role = UserRole(supabase_user.user_metadata.get('role', user.role.value))
+            user.updated_at = datetime.fromisoformat(supabase_user.updated_at)
         
-        # Check if the users table exists
-        try:
-            # Create or update user in SQLAlchemy
-            user = db.session.query(User).filter_by(id=user_id).first()
-            if not user:
-                # Create new user
-                user = User(
-                    id=user_id,
-                    email=email,
-                    role=UserRole(role)
-                )
-                db.session.add(user)
-            else:
-                # Update existing user
-                user.email = email
-                user.role = UserRole(role)
-            
-            # Commit changes
-            db.session.commit()
-            return user
-        except Exception as e:
-            # If there's an error (like table doesn't exist), create the tables
-            if "relation" in str(e) and "does not exist" in str(e):
-                logger.warning(f"Database tables don't exist, creating them now: {str(e)}")
-                from app.models.base import Base
-                Base.metadata.create_all(db.engine)
-                
-                # Try again after creating tables
-                user = User(
-                    id=user_id,
-                    email=email,
-                    role=UserRole(role)
-                )
-                db.session.add(user)
-                db.session.commit()
-                return user
-            else:
-                # Re-raise if it's not a "table doesn't exist" error
-                raise
+        db.session.commit()
+        return user
     except Exception as e:
-        logger.error(f"Error syncing user to database: {str(e)}", exc_info=True)
-        # Return a mock user object with the basic information
-        # This allows authentication to proceed even if DB sync fails
-        from collections import namedtuple
-        MockUser = namedtuple('MockUser', ['id', 'email', 'role'])
-        return MockUser(id=user_id, email=email, role=role)
+        print(f"Error syncing user to database: {str(e)}")
+        db.session.rollback()
+        return None
 
 def signup(email, password, user_metadata=None):
-    """Register a new user using Supabase Auth."""
-    logger.info(f"Signup attempt for {email} with role {user_metadata.get('role') if user_metadata else 'customer'}")
-    
+    """Register a new user with Supabase Auth and sync to local database."""
     try:
-        # Get Supabase client
-        supabase = get_supabase()
-        
-        # Create user in Supabase Auth
+        # Register with Supabase Auth
         auth_response = supabase.auth.sign_up({
-            "email": email,
-            "password": password,
-            "options": {
-                "data": user_metadata  # This will be stored in user metadata
+            'email': email,
+            'password': password,
+            'options': {
+                'data': user_metadata
             }
         })
         
-        if auth_response.user:
-            logger.info(f"User {email} registered successfully with Supabase Auth")
-            
-            # Sync to local database
-            try:
-                with current_app.app_context():
-                    user = sync_user_to_db(auth_response.user)
-                    logger.info(f"User {email} synced to local database with ID {user.id}")
-            except Exception as e:
-                logger.error(f"Error syncing user {email} to local database: {str(e)}", exc_info=True)
-            
-            return auth_response.user
-        else:
-            logger.error(f"Failed to register user {email} with Supabase Auth")
+        if not auth_response.user:
             return None
             
+        # Sync user to local database
+        user = sync_user_to_db(auth_response.user)
+        
+        # If this is a plumber registration, create plumber profile
+        if user and user.role == UserRole.plumber:
+            plumber_data = {
+                'user_id': user.id,
+                'company_name': user_metadata.get('company_name', ''),
+                'contact_name': user_metadata.get('contact_name', ''),
+                'phone': user_metadata.get('phone', ''),
+                'email': email
+            }
+            Plumber.create(plumber_data)
+        
+        return user
     except Exception as e:
-        logger.error(f"Error during signup for {email}: {str(e)}", exc_info=True)
-        raise
+        print(f"Error in signup: {str(e)}")
+        return None
 
 def login(email, password):
-    """Log in a user using Supabase Auth."""
-    logger.info(f"Login attempt for {email}")
-    
+    """Login user with Supabase Auth and sync to local database."""
     try:
-        # Get Supabase client
-        supabase = get_supabase()
-        
-        # Attempt login with Supabase
+        # Login with Supabase Auth
         auth_response = supabase.auth.sign_in_with_password({
-            "email": email,
-            "password": password
+            'email': email,
+            'password': password
         })
         
-        if auth_response.user and auth_response.session:
-            logger.info(f"User {email} logged in successfully with Supabase Auth")
-            
-            # Get user metadata
-            user_metadata = auth_response.user.user_metadata or {}
-            role = user_metadata.get('role', 'customer')
-            
-            # Log the user metadata for debugging
-            logger.info(f"User metadata: {user_metadata}")
-            
-            return {
-                'session': auth_response.session,
-                'user': auth_response.user
-            }
-        else:
-            logger.warning(f"Login failed for {email}")
+        if not auth_response.user:
             return None
             
+        # Sync user to local database
+        user = sync_user_to_db(auth_response.user)
+        
+        # If this is a plumber, ensure plumber profile exists
+        if user and user.role == UserRole.plumber:
+            plumber = Plumber.get_by_user_id(user.id)
+            if not plumber:
+                # Create basic plumber profile if it doesn't exist
+                plumber_data = {
+                    'user_id': user.id,
+                    'company_name': '',
+                    'contact_name': '',
+                    'phone': '',
+                    'email': email
+                }
+                Plumber.create(plumber_data)
+        
+        return user
     except Exception as e:
-        logger.error(f"Error during login for {email}: {str(e)}", exc_info=True)
-        raise
+        print(f"Error in login: {str(e)}")
+        return None
 
 def logout(token):
     """Log out a user by invalidating their token in Supabase Auth."""

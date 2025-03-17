@@ -1,33 +1,88 @@
 import pytest
 import os
-import sys
+from dotenv import load_dotenv
+from app import create_app, db
+from app.models.base import User, UserRole
+from app.services.supabase import init_supabase
 from app.services.mock.supabase_mock import SupabaseMock
-from app.models.base import db, Base
 
-# Add the parent directory to sys.path to allow importing from the app package
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Load test environment variables
+load_dotenv('.env.test')
 
-# Import fixtures that should be available to all tests
-from tests.test_app import app, client 
+@pytest.fixture
+def app():
+    """Create and configure a new app instance for each test."""
+    app = create_app('testing')
+    
+    # Initialize Supabase with test credentials
+    init_supabase(
+        url=os.getenv('TEST_SUPABASE_URL', 'https://your-test-project.supabase.co'),
+        key=os.getenv('TEST_SUPABASE_KEY', 'your-test-anon-key'),
+        testing=True
+    )
+    
+    # Create all tables
+    with app.app_context():
+        db.create_all()
+        
+    yield app
+    
+    # Clean up after each test
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
+def client(app):
+    """Create a test client for the app."""
+    return app.test_client()
+
+@pytest.fixture
 def mock_supabase():
-    """Automatically use mock Supabase for all tests."""
+    """Create a mock Supabase client for testing."""
     return SupabaseMock()
 
 @pytest.fixture(autouse=True)
-def setup_database(app):
-    """Set up the database for tests."""
+def use_mock_supabase(mock_supabase):
+    """Automatically use the mock Supabase client for all tests."""
+    # Reset the singleton instance
+    SupabaseClient._instance = None
+    # Set the mock client
+    SupabaseClient.get_instance().set_client(mock_supabase)
+
+@pytest.fixture
+def test_user(app):
+    """Create a test user for testing."""
     with app.app_context():
-        # Create all tables
-        Base.metadata.create_all(db.engine)
-        
-        # Commit the changes
+        user = User(
+            id='test-user-id',
+            email='test@example.com',
+            role=UserRole.customer
+        )
+        db.session.add(user)
+        db.session.commit()
+        return user
+
+@pytest.fixture
+def test_plumber(app):
+    """Create a test plumber for testing."""
+    with app.app_context():
+        user = User(
+            id='test-plumber-id',
+            email='plumber@example.com',
+            role=UserRole.plumber
+        )
+        db.session.add(user)
         db.session.commit()
         
-        yield
-        
-        # Clean up after the test
-        db.session.remove()
-        # Optionally drop all tables after tests
-        # Base.metadata.drop_all(db.engine) 
+        from app.models.plumber import Plumber
+        plumber = Plumber(
+            id='test-plumber-profile-id',
+            user_id=user.id,
+            company_name='Test Plumbing Co.',
+            contact_name='John Doe',
+            phone='555-123-4567'
+        )
+        db.session.add(plumber)
+        db.session.commit()
+        return plumber 

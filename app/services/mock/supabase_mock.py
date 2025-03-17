@@ -1,136 +1,117 @@
+from datetime import datetime
+import uuid
+
 class SupabaseMock:
+    """Mock Supabase client for testing."""
+    
     def __init__(self):
-        self.auth = AuthMock()
+        self.users = {}
+        self.plumbers = {}
+        self.auth = AuthMock(self)
+        self.table = TableMock(self)
+    
+    def reset(self):
+        """Reset all mock data."""
+        self.users.clear()
+        self.plumbers.clear()
 
 class AuthMock:
-    def __init__(self):
-        self.current_user = None
-        self.session = None
-        # Store registered users for testing
-        self.users = {}
-        # Pre-register admin user
-        admin_user = MockUser(
-            id='123e4567-e89b-12d3-a456-426614174000',  # Valid UUID format
-            email='admin@example.com',
-            user_metadata={'role': 'admin', 'name': 'Admin User'}
-        )
-        self.users['admin@example.com'] = {
-            'user': admin_user,
-            'password': 'admin123'
-        }
-
-    def sign_up(self, credentials):
-        """Mock sign up method"""
-        email = credentials.get('email')
-        password = credentials.get('password')
-        options = credentials.get('options', {})
-        user_metadata = options.get('data', {})
-        
-        # Generate a mock user ID in valid UUID format
-        import uuid
+    """Mock Supabase Auth client."""
+    
+    def __init__(self, supabase_mock):
+        self.supabase_mock = supabase_mock
+    
+    def sign_up(self, data):
+        """Mock user registration."""
         user_id = str(uuid.uuid4())
-        if email == 'admin@example.com':
-            user_id = '123e4567-e89b-12d3-a456-426614174000'  # Consistent UUID for admin
-        
-        user = MockUser(
-            id=user_id,
-            email=email,
-            user_metadata=user_metadata
-        )
-        
-        # Store user for later authentication
-        self.users[email] = {
-            'user': user,
-            'password': password
+        user = {
+            'id': user_id,
+            'email': data['email'],
+            'user_metadata': data['options']['data'],
+            'created_at': datetime.utcnow().isoformat(),
+            'updated_at': datetime.utcnow().isoformat()
         }
-        
-        return AuthResponse({
-            'user': user,
-            'session': None
-        })
+        self.supabase_mock.users[user_id] = user
+        return AuthResponse(user)
     
-    def sign_in_with_password(self, credentials):
-        """Mock sign in method"""
-        email = credentials.get('email')
-        password = credentials.get('password')
-        
-        # Check if user exists and password matches
-        if email in self.users and self.users[email]['password'] == password:
-            user = self.users[email]['user']
-        elif email == 'admin@example.com' and password == 'admin123':
-            # Special case for admin user
-            user = MockUser(
-                id='123e4567-e89b-12d3-a456-426614174000',  # Valid UUID format
-                email='admin@example.com',
-                user_metadata={'role': 'admin', 'name': 'Admin User'}
-            )
-        else:
-            # For testing, accept any credentials with default plumber role
-            import uuid
-            user = MockUser(
-                id=str(uuid.uuid4()),  # Generate a valid UUID
-                email=email,
-                user_metadata={'role': 'plumber'}
-            )
-        
-        session = MockSession(
-            access_token='mock-access-token',
-            refresh_token='mock-refresh-token',
-            user=user
-        )
-        
-        return AuthResponse({
-            'user': user,
-            'session': session
-        })
-    
-    def get_user(self, token):
-        """Mock get user method for token verification"""
-        # Special case for admin token
-        if token == 'mock-token-admin' or 'admin' in token:
-            user = MockUser(
-                id='123e4567-e89b-12d3-a456-426614174000',  # Valid UUID format
-                email='admin@example.com',
-                user_metadata={'role': 'admin', 'name': 'Admin User'}
-            )
-        else:
-            # For testing, return a mock user with plumber role
-            import uuid
-            user = MockUser(
-                id=str(uuid.uuid4()),  # Generate a valid UUID
-                email='test@example.com',
-                user_metadata={'role': 'plumber'}
-            )
-        
-        return AuthResponse({
-            'user': user,
-            'session': None
-        })
+    def sign_in_with_password(self, data):
+        """Mock user login."""
+        for user in self.supabase_mock.users.values():
+            if user['email'] == data['email']:
+                return AuthResponse(user)
+        return None
     
     def sign_out(self):
-        """Mock sign out method"""
-        self.current_user = None
-        self.session = None
+        """Mock user logout."""
         return True
+
+class TableMock:
+    """Mock Supabase Table client."""
     
-    def reset_password_for_email(self, email):
-        """Mock reset password method"""
-        # Just return success for testing
-        return True
-
-class MockUser:
-    def __init__(self, id, email, user_metadata=None):
-        self.id = id
-        self.email = email
-        self.user_metadata = user_metadata or {}
-
-class MockSession:
-    def __init__(self, access_token, refresh_token=None, user=None):
-        self.access_token = access_token
-        self.refresh_token = refresh_token
-        self.user = user
+    def __init__(self, supabase_mock):
+        self.supabase_mock = supabase_mock
+    
+    def __call__(self, table_name):
+        self.table_name = table_name
+        return self
+    
+    def select(self, *args):
+        """Mock select query."""
+        self.query_type = 'select'
+        self.columns = args
+        return self
+    
+    def insert(self, data):
+        """Mock insert query."""
+        self.query_type = 'insert'
+        self.data = data
+        return self
+    
+    def update(self, data):
+        """Mock update query."""
+        self.query_type = 'update'
+        self.data = data
+        return self
+    
+    def eq(self, column, value):
+        """Mock equality filter."""
+        self.filter_column = column
+        self.filter_value = value
+        return self
+    
+    def execute(self):
+        """Execute the mock query."""
+        if self.table_name == 'plumbers':
+            if self.query_type == 'insert':
+                plumber_id = str(uuid.uuid4())
+                self.supabase_mock.plumbers[plumber_id] = {
+                    'id': plumber_id,
+                    **self.data
+                }
+                return QueryResponse([self.supabase_mock.plumbers[plumber_id]])
+            elif self.query_type == 'select':
+                if hasattr(self, 'filter_column') and self.filter_column == 'user_id':
+                    for plumber in self.supabase_mock.plumbers.values():
+                        if plumber['user_id'] == self.filter_value:
+                            return QueryResponse([plumber])
+                return QueryResponse(list(self.supabase_mock.plumbers.values()))
+            elif self.query_type == 'update':
+                if hasattr(self, 'filter_column') and self.filter_column == 'id':
+                    plumber_id = self.filter_value
+                    if plumber_id in self.supabase_mock.plumbers:
+                        self.supabase_mock.plumbers[plumber_id].update(self.data)
+                        return QueryResponse([self.supabase_mock.plumbers[plumber_id]])
+        return QueryResponse([])
 
 class AuthResponse:
+    """Mock Auth Response."""
+    
+    def __init__(self, user):
+        self.user = user
+        self.session = {'access_token': 'mock-token'}
+
+class QueryResponse:
+    """Mock Query Response."""
+    
     def __init__(self, data):
-        self.user = data.get('user')
-        self.session = data.get('session') 
+        self.data = data 
