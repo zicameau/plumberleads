@@ -34,7 +34,7 @@ def test_plumber_registration_database_creation(client, app, db):
         assert 'registration_success' in response.headers['Location']
 
         # Query the database directly to verify plumber creation
-        plumber = db.session.query(Plumber).filter_by(email=registration_data['email']).first()
+        plumber = db.query(Plumber).filter_by(email=registration_data['email']).first()
         
         # Verify plumber record exists
         assert plumber is not None, "Plumber record was not created in database"
@@ -100,7 +100,7 @@ def test_plumber_registration_duplicate_email(client, app, db):
         assert b'This email may already be registered' in response.data
         
         # Verify only one plumber exists with this email
-        plumber_count = db.session.query(Plumber).filter_by(email=registration_data['email']).count()
+        plumber_count = db.query(Plumber).filter_by(email=registration_data['email']).count()
         assert plumber_count == 1
 
 def test_plumber_registration_missing_required_fields(client, app, db):
@@ -122,7 +122,7 @@ def test_plumber_registration_missing_required_fields(client, app, db):
         assert b'All required fields must be filled out' in response.data
         
         # Verify no plumber was created
-        plumber_count = db.session.query(Plumber).count()
+        plumber_count = db.query(Plumber).count()
         assert plumber_count == 0
 
 def test_plumber_registration_invalid_password_confirmation(client, app, db):
@@ -153,7 +153,7 @@ def test_plumber_registration_invalid_password_confirmation(client, app, db):
         assert b'Passwords do not match' in response.data
         
         # Verify no plumber was created
-        plumber_count = db.session.query(Plumber).count()
+        plumber_count = db.query(Plumber).count()
         assert plumber_count == 0
 
 def test_plumber_registration_invalid_address(client, db, mocker):
@@ -189,5 +189,5 @@ def test_plumber_registration_invalid_address(client, db, mocker):
     assert b'Could not validate your address' in response.data
 
     # Verify no plumber was created
-    plumber = Plumber.query.filter_by(email=registration_data['email']).first()
+    plumber = db.query(Plumber).filter_by(email=registration_data['email']).first()
     assert plumber is None 

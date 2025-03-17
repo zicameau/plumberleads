@@ -44,6 +44,11 @@ def db_session(_db):
     connection.close()
 
 @pytest.fixture
+def db(db_session):
+    """Provide the database session to tests."""
+    return db_session
+
+@pytest.fixture
 def client(app):
     """Get test client."""
     return app.test_client()
