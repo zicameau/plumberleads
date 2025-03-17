@@ -1,6 +1,21 @@
 from datetime import datetime
 import uuid
 
+class MockUser:
+    """Mock user class for testing."""
+    def __init__(self, id, email, user_metadata=None):
+        self.id = id
+        self.email = email
+        self.user_metadata = user_metadata or {}
+        self.created_at = datetime.utcnow().isoformat()
+        self.updated_at = datetime.utcnow().isoformat()
+
+class MockSession:
+    """Mock session class for testing."""
+    def __init__(self, access_token):
+        self.access_token = access_token
+        self.user = None
+
 class SupabaseMock:
     """Mock Supabase client for testing."""
     
@@ -24,20 +39,18 @@ class AuthMock:
     def sign_up(self, data):
         """Mock user registration."""
         user_id = str(uuid.uuid4())
-        user = {
-            'id': user_id,
-            'email': data['email'],
-            'user_metadata': data['options']['data'],
-            'created_at': datetime.utcnow().isoformat(),
-            'updated_at': datetime.utcnow().isoformat()
-        }
+        user = MockUser(
+            id=user_id,
+            email=data['email'],
+            user_metadata=data.get('options', {}).get('data', {})
+        )
         self.supabase_mock.users[user_id] = user
         return AuthResponse(user)
     
     def sign_in_with_password(self, data):
         """Mock user login."""
         for user in self.supabase_mock.users.values():
-            if user['email'] == data['email']:
+            if user.email == data['email']:
                 return AuthResponse(user)
         return None
     
@@ -108,7 +121,7 @@ class AuthResponse:
     
     def __init__(self, user):
         self.user = user
-        self.session = {'access_token': 'mock-token'}
+        self.session = MockSession('mock-token')
 
 class QueryResponse:
     """Mock Query Response."""

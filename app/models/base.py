@@ -70,17 +70,37 @@ class UrgencyType(enum.Enum):
     next_week = "next_week"
     flexible = "flexible"
 
-# User model (for local development without Supabase auth)
-class User(Base):
+class BaseModel:
+    """Base model class with common functionality."""
+    
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+    
+    def to_dict(self):
+        """Convert model to dictionary."""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+    
+    @classmethod
+    def from_dict(cls, data):
+        """Create model instance from dictionary."""
+        return cls(**data)
+
+class User(Base, BaseModel):
+    """User model for authentication and authorization."""
     __tablename__ = 'users'
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=False)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.plumber)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     plumber = relationship("Plumber", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<User {self.email}>"
 
 # Plumber model
 class Plumber(Base):
