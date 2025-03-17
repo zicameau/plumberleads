@@ -141,7 +141,7 @@ def registration_success():
                          role=role)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
-def handle_login():
+def login():
     """Login page."""
     if request.method == 'POST':
         email = request.form.get('email')
@@ -157,14 +157,14 @@ def handle_login():
     return render_template('auth/login.html')
 
 @auth_bp.route('/logout')
-def logout():
+def logout_route():
     """Logout route."""
     if logout():
         flash('You have been logged out.', 'success')
     return redirect(url_for('home.index'))
 
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
-def handle_reset_password():
+def reset_password_route():
     """Password reset request page."""
     if request.method == 'POST':
         email = request.form.get('email')
