@@ -141,7 +141,7 @@ def registration_success():
                          role=role)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
-def login():
+def handle_login():
     """Login page."""
     if request.method == 'POST':
         email = request.form.get('email')
@@ -164,7 +164,7 @@ def logout():
     return redirect(url_for('home.index'))
 
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
-def reset_password():
+def handle_reset_password():
     """Password reset request page."""
     if request.method == 'POST':
         email = request.form.get('email')

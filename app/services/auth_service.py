@@ -263,7 +263,15 @@ def login(email, password):
         
         if response.user:
             logger.info(f"Successfully logged in user: {email}")
-            return response.user
+            # Return a dictionary with user info for consistency
+            return {
+                'user': {
+                    'id': response.user.id,
+                    'email': response.user.email,
+                    'user_metadata': response.user.user_metadata
+                },
+                'session': response.session
+            }
         else:
             logger.error(f"Failed to log in user: {email}")
             return None
@@ -324,7 +332,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if not get_current_user():
             flash('Please log in to access this page.', 'error')
-            return redirect(url_for('auth.login_route'))
+            return redirect(url_for('auth.handle_login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -406,7 +414,7 @@ def token_required(f):
             
             # For web routes, redirect to login
             flash('Please log in to access this page.', 'warning')
-            return redirect(url_for('auth.login_route'))
+            return redirect(url_for('auth.handle_login'))
         
         try:
             # Get Supabase client
@@ -448,6 +456,6 @@ def token_required(f):
             
             # For web routes, redirect to login
             flash('Your session has expired. Please log in again.', 'warning')
-            return redirect(url_for('auth.login_route'))
+            return redirect(url_for('auth.handle_login'))
     
     return decorated
