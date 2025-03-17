@@ -141,7 +141,7 @@ def registration_success():
                          role=role)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
-def login():
+def handle_login():
     """Login page."""
     if request.method == 'POST':
         email = request.form.get('email')

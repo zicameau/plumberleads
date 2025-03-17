@@ -1,3 +1,10 @@
+import uuid
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List
+import logging
+
+logger = logging.getLogger('auth')
+
 class SupabaseMock:
     def __init__(self):
         self.auth = AuthMock()
@@ -96,7 +103,6 @@ class AuthMock:
         user_metadata = options.get('data', {})
         
         # Generate a mock user ID in valid UUID format
-        import uuid
         user_id = str(uuid.uuid4())
         if email == 'admin@example.com':
             user_id = '123e4567-e89b-12d3-a456-426614174000'  # Consistent UUID for admin
@@ -135,7 +141,6 @@ class AuthMock:
             )
         else:
             # For testing, accept any credentials with default plumber role
-            import uuid
             user = MockUser(
                 id=str(uuid.uuid4()),  # Generate a valid UUID
                 email=email,
@@ -164,7 +169,6 @@ class AuthMock:
             )
         else:
             # For testing, return a mock user with plumber role
-            import uuid
             user = MockUser(
                 id=str(uuid.uuid4()),  # Generate a valid UUID
                 email='test@example.com',
