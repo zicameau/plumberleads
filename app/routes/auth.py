@@ -11,39 +11,104 @@ logger = logging.getLogger('auth')
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+PLUMBING_SERVICES = [
+    {'id': 'emergency', 'name': 'Emergency Plumbing'},
+    {'id': 'leak', 'name': 'Leak Detection & Repair'},
+    {'id': 'drain', 'name': 'Drain Cleaning'},
+    {'id': 'toilet', 'name': 'Toilet Repair/Installation'},
+    {'id': 'faucet', 'name': 'Faucet Repair/Installation'},
+    {'id': 'sink', 'name': 'Sink Repair/Installation'},
+    {'id': 'disposal', 'name': 'Garbage Disposal Repair/Installation'},
+    {'id': 'water_heater', 'name': 'Water Heater Services'},
+    {'id': 'sewer', 'name': 'Sewer Line Services'},
+    {'id': 'repiping', 'name': 'Repiping Services'},
+    {'id': 'gas_line', 'name': 'Gas Line Installation/Repair'},
+    {'id': 'backflow', 'name': 'Backflow Prevention'},
+    {'id': 'waterproofing', 'name': 'Basement Waterproofing'},
+    {'id': 'sump_pump', 'name': 'Sump Pump Services'},
+    {'id': 'commercial', 'name': 'Commercial Plumbing'},
+    {'id': 'inspection', 'name': 'Plumbing Inspection'},
+    {'id': 'maintenance', 'name': 'Preventative Maintenance'},
+    {'id': 'renovation', 'name': 'Bathroom/Kitchen Renovation Plumbing'},
+    {'id': 'other', 'name': 'Other Plumbing Services'}
+]
+
 @auth_bp.route('/register/plumber', methods=['GET', 'POST'])
 def register_plumber():
     """Registration page for plumbers."""
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        company_name = request.form.get('company_name')
+        # Get form data
+        plumber_data = {
+            'email': request.form.get('email'),
+            'password': request.form.get('password'),
+            'confirm_password': request.form.get('confirm_password'),
+            'company_name': request.form.get('company_name'),
+            'contact_name': request.form.get('contact_name'),
+            'phone': request.form.get('phone'),
+            'address': request.form.get('address'),
+            'city': request.form.get('city'),
+            'state': request.form.get('state'),
+            'zip_code': request.form.get('zip_code'),
+            'service_radius': int(request.form.get('service_radius', 25)),
+            'services_offered': request.form.getlist('services_offered'),
+            'license_number': request.form.get('license_number'),
+            'is_insured': request.form.get('is_insured') == 'yes'
+        }
         
-        logger.info(f"Plumber registration form submitted for {email}")
-        
-        if not all([email, password, confirm_password, company_name]):
-            logger.warning(f"Incomplete plumber registration form for {email}")
-            flash('All fields are required', 'error')
-            return render_template('auth/register_plumber.html')
+        # Basic validation
+        if not all([plumber_data['email'], plumber_data['password'], 
+                   plumber_data['confirm_password'], plumber_data['company_name']]):
+            flash('All required fields must be filled out', 'error')
+            return render_template('auth/register_plumber.html', 
+                                form_data=plumber_data,
+                                services=PLUMBING_SERVICES)
             
-        if password != confirm_password:
-            logger.warning(f"Password mismatch in plumber registration for {email}")
+        if plumber_data['password'] != plumber_data['confirm_password']:
             flash('Passwords do not match', 'error')
-            return render_template('auth/register_plumber.html', form_data=request.form)
-        
+            return render_template('auth/register_plumber.html', 
+                                form_data=plumber_data,
+                                services=PLUMBING_SERVICES)
+
+        # Geocode the address if provided
+        if all([plumber_data['address'], plumber_data['city'], 
+               plumber_data['state'], plumber_data['zip_code']]):
+            from app.services.lead_service import geocode_address
+            try:
+                latitude, longitude = geocode_address(
+                    plumber_data['address'],
+                    plumber_data['city'],
+                    plumber_data['state'],
+                    plumber_data['zip_code']
+                )
+                plumber_data['latitude'] = latitude
+                plumber_data['longitude'] = longitude
+            except Exception as e:
+                flash('Could not validate your address. Please check and try again.', 'error')
+                return render_template('auth/register_plumber.html', 
+                                    form_data=plumber_data,
+                                    services=PLUMBING_SERVICES)
+
         # Create user with plumber role
         user_metadata = {
             'role': 'plumber',
-            'company_name': company_name
+            'company_name': plumber_data['company_name']
         }
         
-        logger.info(f"Attempting to create plumber account for {email}")
-        user = signup(email, password, user_metadata)
+        user = signup(plumber_data['email'], plumber_data['password'], user_metadata)
         
         if user:
+            # Create plumber profile
+            from app.models.plumber import Plumber
+            plumber_data['user_id'] = user.id
+            plumber = Plumber.create(plumber_data)
+            
+            if not plumber:
+                # If profile creation fails, we should handle this case
+                # Ideally with a cleanup of the created user
+                flash('Registration successful but profile creation failed. Please contact support.', 'warning')
+            
             # Store user info for redirection after email confirmation
-            session['registered_email'] = email
+            session['registered_email'] = plumber_data['email']
             session['registered_role'] = 'plumber'
             
             logger.info(f"Plumber registration successful for {email}")
@@ -52,11 +117,13 @@ def register_plumber():
         else:
             logger.warning(f"Plumber registration failed for {email}")
             flash('Registration failed. This email may already be registered.', 'error')
-            return render_template('auth/register_plumber.html', form_data=request.form)
+            return render_template('auth/register_plumber.html', 
+                                form_data=plumber_data,
+                                services=PLUMBING_SERVICES)
     
     # GET request - show registration form
-    logger.info("Plumber registration form requested")
-    return render_template('auth/register_plumber.html')
+    return render_template('auth/register_plumber.html', 
+                         services=PLUMBING_SERVICES)
 
 @auth_bp.route('/register/success', methods=['GET'])
 def registration_success():
