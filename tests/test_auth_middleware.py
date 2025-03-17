@@ -7,8 +7,7 @@ from app.services.auth_service import token_required, admin_required, plumber_re
 # Add the parent directory to sys.path to allow importing from the app package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-@pytest.fixture(autouse=True)
-def test_bp(app):
+def create_test_blueprint():
     """Create a test blueprint for auth middleware tests."""
     bp = Blueprint('test', __name__)
     
@@ -33,7 +32,12 @@ def test_bp(app):
     def public_route():
         return {'success': True}
     
-    # Register blueprint before any requests are made
+    return bp
+
+@pytest.fixture(autouse=True)
+def test_bp(app):
+    """Register the test blueprint with the app."""
+    bp = create_test_blueprint()
     app.register_blueprint(bp)
     return bp
 

@@ -19,15 +19,15 @@ def _db(app):
     """Create database for the tests."""
     with app.app_context():
         # Create all tables
-        Base.metadata.create_all(db.get_engine())
+        Base.metadata.create_all(db.engine)
         yield db
         # Drop all tables after tests
-        Base.metadata.drop_all(db.get_engine())
+        Base.metadata.drop_all(db.engine)
 
 @pytest.fixture
 def db_session(_db):
     """Create a new database session for a test."""
-    connection = _db.get_engine().connect()
+    connection = _db.engine.connect()
     transaction = connection.begin()
     
     # Create a session bound to the connection
