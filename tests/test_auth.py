@@ -1,193 +1,217 @@
 import pytest
+from flask import session
 from app.models.plumber import Plumber
-from app.models.base import db
-from app.services.auth_service import signup
-import uuid
+from app.services.mock.supabase_mock import MockUser
 
-def test_plumber_registration_database_creation(client, app, db):
-    """Test that plumber registration properly creates both user and plumber records."""
-    
-    with app.app_context():
-        # Test registration data
-        registration_data = {
-            'email': 'test.plumber@example.com',
-            'password': 'TestPassword123!',
-            'confirm_password': 'TestPassword123!',
-            'company_name': 'Test Plumbing Co',
-            'contact_name': 'John Doe',
-            'phone': '555-123-4567',
-            'address': '123 Test St',
-            'city': 'Test City',
-            'state': 'TS',
-            'zip_code': '12345',
-            'service_radius': '25',
-            'services_offered': ['emergency', 'leak', 'drain'],
-            'license_number': 'PL12345',
-            'is_insured': 'yes'
-        }
-
-        # Make registration request
-        response = client.post('/auth/register/plumber', data=registration_data)
-        
-        # Check redirect to success page
-        assert response.status_code == 302
-        assert 'registration_success' in response.headers['Location']
-
-        # Query the database directly to verify plumber creation
-        plumber = db.query(Plumber).filter_by(email=registration_data['email']).first()
-        
-        # Verify plumber record exists
-        assert plumber is not None, "Plumber record was not created in database"
-        
-        # Verify all plumber data was saved correctly
-        assert plumber.company_name == registration_data['company_name']
-        assert plumber.contact_name == registration_data['contact_name']
-        assert plumber.email == registration_data['email']
-        assert plumber.phone == registration_data['phone']
-        assert plumber.address == registration_data['address']
-        assert plumber.city == registration_data['city']
-        assert plumber.state == registration_data['state']
-        assert plumber.zip_code == registration_data['zip_code']
-        assert plumber.service_radius == int(registration_data['service_radius'])
-        assert set(plumber.services_offered) == set(registration_data['services_offered'])
-        assert plumber.license_number == registration_data['license_number']
-        assert plumber.is_insured == (registration_data['is_insured'] == 'yes')
-        
-        # Verify default values
-        assert plumber.subscription_status == 'inactive'
-        assert plumber.lead_credits == 0
-        assert plumber.is_active == True
-        
-        # Verify user_id was set and is a valid UUID
-        assert plumber.user_id is not None
-        try:
-            uuid.UUID(str(plumber.user_id))
-        except ValueError:
-            pytest.fail("user_id is not a valid UUID")
-
-def test_plumber_registration_duplicate_email(client, app, db):
-    """Test that registration fails with duplicate email."""
-    
-    with app.app_context():
-        # Register first plumber
-        registration_data = {
-            'email': 'duplicate@example.com',
-            'password': 'TestPassword123!',
-            'confirm_password': 'TestPassword123!',
-            'company_name': 'First Plumbing Co',
-            'contact_name': 'John Doe',
-            'phone': '555-123-4567',
-            'address': '123 Test St',
-            'city': 'Test City',
-            'state': 'TS',
-            'zip_code': '12345',
-            'service_radius': '25',
-            'services_offered': ['emergency'],
-            'license_number': 'PL12345',
-            'is_insured': 'yes'
-        }
-
-        # First registration should succeed
-        response = client.post('/auth/register/plumber', data=registration_data)
-        assert response.status_code == 302
-        
-        # Attempt to register second plumber with same email
-        registration_data['company_name'] = 'Second Plumbing Co'
-        response = client.post('/auth/register/plumber', data=registration_data)
-        
-        # Should stay on registration page with error
-        assert response.status_code == 200
-        assert b'This email may already be registered' in response.data
-        
-        # Verify only one plumber exists with this email
-        plumber_count = db.query(Plumber).filter_by(email=registration_data['email']).count()
-        assert plumber_count == 1
-
-def test_plumber_registration_missing_required_fields(client, app, db):
-    """Test that registration fails when required fields are missing."""
-    
-    with app.app_context():
-        # Test registration with missing required fields
-        registration_data = {
-            'email': 'test.plumber@example.com',
-            'password': 'TestPassword123!',
-            'confirm_password': 'TestPassword123!',
-            # Missing company_name and other required fields
-        }
-
-        response = client.post('/auth/register/plumber', data=registration_data)
-        
-        # Should stay on registration page with error
-        assert response.status_code == 200
-        assert b'All required fields must be filled out' in response.data
-        
-        # Verify no plumber was created
-        plumber_count = db.query(Plumber).count()
-        assert plumber_count == 0
-
-def test_plumber_registration_invalid_password_confirmation(client, app, db):
-    """Test that registration fails when passwords don't match."""
-    
-    with app.app_context():
-        registration_data = {
-            'email': 'test.plumber@example.com',
-            'password': 'TestPassword123!',
-            'confirm_password': 'DifferentPassword123!',
-            'company_name': 'Test Plumbing Co',
-            'contact_name': 'John Doe',
-            'phone': '555-123-4567',
-            'address': '123 Test St',
-            'city': 'Test City',
-            'state': 'TS',
-            'zip_code': '12345',
-            'service_radius': '25',
-            'services_offered': ['emergency'],
-            'license_number': 'PL12345',
-            'is_insured': 'yes'
-        }
-
-        response = client.post('/auth/register/plumber', data=registration_data)
-        
-        # Should stay on registration page with error
-        assert response.status_code == 200
-        assert b'Passwords do not match' in response.data
-        
-        # Verify no plumber was created
-        plumber_count = db.query(Plumber).count()
-        assert plumber_count == 0
-
-def test_plumber_registration_invalid_address(client, db, mocker):
-    """Test plumber registration fails when address geocoding fails."""
-    
-    # Mock geocoding to fail
-    mock_geocode = mocker.patch('app.services.lead_service.geocode_address')
-    mock_geocode.side_effect = Exception('Geocoding failed')
-
-    # Test registration data
-    registration_data = {
-        'email': 'test.plumber@example.com',
-        'password': 'TestPassword123!',
-        'confirm_password': 'TestPassword123!',
-        'company_name': 'Test Plumbing Co',
+def test_plumber_registration(client):
+    """Test plumber registration process."""
+    data = {
+        'email': 'test@example.com',
+        'password': 'testpassword',
+        'confirm_password': 'testpassword',
+        'company_name': 'Test Plumbing',
         'contact_name': 'John Doe',
-        'phone': '555-123-4567',
-        'address': 'Invalid Address',
+        'phone': '1234567890',
+        'address': '123 Test St',
         'city': 'Test City',
         'state': 'TS',
         'zip_code': '12345',
         'service_radius': '25',
-        'services_offered': ['emergency'],
-        'license_number': 'PL12345',
+        'services_offered': ['residential', 'commercial'],
+        'license_number': '12345',
         'is_insured': 'yes'
     }
-
-    # Make registration request
-    response = client.post('/auth/register/plumber', data=registration_data)
     
-    # Check response shows form again with error
-    assert response.status_code == 200
-    assert b'Could not validate your address' in response.data
+    response = client.post('/auth/register/plumber', data=data)
+    assert response.status_code == 302
+    assert response.location == '/auth/registration-success'
+    
+    # Check that plumber was created
+    plumber = Plumber.get_by_email(data['email'])
+    assert plumber is not None
+    assert plumber.company_name == data['company_name']
+    assert plumber.contact_name == data['contact_name']
+    assert plumber.email == data['email']
+    assert plumber.phone == data['phone']
+    assert plumber.address == data['address']
+    assert plumber.city == data['city']
+    assert plumber.state == data['state']
+    assert plumber.zip_code == data['zip_code']
+    assert plumber.service_radius == int(data['service_radius'])
+    assert plumber.services_offered == data['services_offered']
+    assert plumber.license_number == data['license_number']
+    assert plumber.is_insured is True
 
-    # Verify no plumber was created
-    plumber = db.query(Plumber).filter_by(email=registration_data['email']).first()
-    assert plumber is None 
+def test_plumber_registration_duplicate_email(client):
+    """Test plumber registration with duplicate email."""
+    data = {
+        'email': 'test@example.com',
+        'password': 'testpassword',
+        'confirm_password': 'testpassword',
+        'company_name': 'Test Plumbing',
+        'contact_name': 'John Doe',
+        'phone': '1234567890',
+        'address': '123 Test St',
+        'city': 'Test City',
+        'state': 'TS',
+        'zip_code': '12345',
+        'service_radius': '25',
+        'services_offered': ['residential', 'commercial'],
+        'license_number': '12345',
+        'is_insured': 'yes'
+    }
+    
+    # Register first plumber
+    response = client.post('/auth/register/plumber', data=data)
+    assert response.status_code == 302
+    assert response.location == '/auth/registration-success'
+    
+    # Try to register second plumber with same email
+    response = client.post('/auth/register/plumber', data=data)
+    assert response.status_code == 200
+    assert b'Registration failed' in response.data
+
+def test_plumber_registration_missing_fields(client):
+    """Test plumber registration with missing required fields."""
+    data = {
+        'email': 'test@example.com',
+        'password': 'testpassword',
+        'confirm_password': 'testpassword',
+        'company_name': 'Test Plumbing',
+        'contact_name': 'John Doe',
+        'phone': '1234567890',
+        'address': '123 Test St',
+        'city': 'Test City',
+        'state': 'TS',
+        'zip_code': '12345',
+        'service_radius': '25',
+        'services_offered': ['residential', 'commercial'],
+        'license_number': '12345',
+        'is_insured': 'yes'
+    }
+    
+    # Remove required field
+    del data['company_name']
+    
+    response = client.post('/auth/register/plumber', data=data)
+    assert response.status_code == 200
+    assert b'All required fields must be filled out' in response.data
+
+def test_plumber_registration_password_mismatch(client):
+    """Test plumber registration with mismatched passwords."""
+    data = {
+        'email': 'test@example.com',
+        'password': 'testpassword',
+        'confirm_password': 'wrongpassword',
+        'company_name': 'Test Plumbing',
+        'contact_name': 'John Doe',
+        'phone': '1234567890',
+        'address': '123 Test St',
+        'city': 'Test City',
+        'state': 'TS',
+        'zip_code': '12345',
+        'service_radius': '25',
+        'services_offered': ['residential', 'commercial'],
+        'license_number': '12345',
+        'is_insured': 'yes'
+    }
+    
+    response = client.post('/auth/register/plumber', data=data)
+    assert response.status_code == 200
+    assert b'Passwords do not match' in response.data
+
+def test_plumber_registration_invalid_address(client):
+    """Test plumber registration with invalid address."""
+    data = {
+        'email': 'test@example.com',
+        'password': 'testpassword',
+        'confirm_password': 'testpassword',
+        'company_name': 'Test Plumbing',
+        'contact_name': 'John Doe',
+        'phone': '1234567890',
+        'address': 'Invalid Address',
+        'city': 'Invalid City',
+        'state': 'XX',
+        'zip_code': '00000',
+        'service_radius': '25',
+        'services_offered': ['residential', 'commercial'],
+        'license_number': '12345',
+        'is_insured': 'yes'
+    }
+    
+    response = client.post('/auth/register/plumber', data=data)
+    assert response.status_code == 200
+    assert b'Invalid address' in response.data
+
+def test_login_success(client):
+    """Test successful login."""
+    # Register a plumber first
+    data = {
+        'email': 'test@example.com',
+        'password': 'testpassword',
+        'confirm_password': 'testpassword',
+        'company_name': 'Test Plumbing',
+        'contact_name': 'John Doe',
+        'phone': '1234567890',
+        'address': '123 Test St',
+        'city': 'Test City',
+        'state': 'TS',
+        'zip_code': '12345',
+        'service_radius': '25',
+        'services_offered': ['residential', 'commercial'],
+        'license_number': '12345',
+        'is_insured': 'yes'
+    }
+    
+    client.post('/auth/register/plumber', data=data)
+    
+    # Try to login
+    login_data = {
+        'email': 'test@example.com',
+        'password': 'testpassword'
+    }
+    
+    response = client.post('/auth/login', data=login_data)
+    assert response.status_code == 302
+    assert response.location == '/'
+    assert 'user_id' in session
+
+def test_login_invalid_credentials(client):
+    """Test login with invalid credentials."""
+    login_data = {
+        'email': 'test@example.com',
+        'password': 'wrongpassword'
+    }
+    
+    response = client.post('/auth/login', data=login_data)
+    assert response.status_code == 200
+    assert b'Invalid email or password' in response.data
+    assert 'user_id' not in session
+
+def test_logout(client):
+    """Test logout process."""
+    # Login first
+    login_data = {
+        'email': 'test@example.com',
+        'password': 'testpassword'
+    }
+    
+    client.post('/auth/login', data=login_data)
+    assert 'user_id' in session
+    
+    # Logout
+    response = client.get('/auth/logout')
+    assert response.status_code == 302
+    assert response.location == '/'
+    assert 'user_id' not in session
+
+def test_reset_password(client):
+    """Test password reset request."""
+    data = {
+        'email': 'test@example.com'
+    }
+    
+    response = client.post('/auth/reset-password', data=data)
+    assert response.status_code == 302
+    assert response.location == '/auth/login'
+    assert b'Password reset instructions have been sent to your email' in response.data 

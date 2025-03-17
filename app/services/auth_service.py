@@ -217,111 +217,125 @@ def sync_user_to_db(supabase_user):
         return MockUser(id=user_id, email=email, role=role)
 
 def signup(email, password, user_metadata=None):
-    """Register a new user using Supabase Auth."""
-    logger.info(f"Signup attempt for {email} with role {user_metadata.get('role') if user_metadata else 'customer'}")
-    
+    """Sign up a new user."""
     try:
-        # Get Supabase client
         supabase = get_supabase()
-        
-        # Create user in Supabase Auth
-        auth_response = supabase.auth.sign_up({
-            "email": email,
-            "password": password,
-            "options": {
-                "data": user_metadata  # This will be stored in user metadata
+        response = supabase.auth.sign_up({
+            'email': email,
+            'password': password,
+            'options': {
+                'data': user_metadata or {}
             }
         })
         
-        if auth_response.user:
-            logger.info(f"User {email} registered successfully with Supabase Auth")
-            
-            # Sync to local database
-            try:
-                with current_app.app_context():
-                    user = sync_user_to_db(auth_response.user)
-                    logger.info(f"User {email} synced to local database with ID {user.id}")
-            except Exception as e:
-                logger.error(f"Error syncing user {email} to local database: {str(e)}", exc_info=True)
-            
-            return auth_response.user
+        if response.user:
+            logger.info(f"Successfully signed up user: {email}")
+            return response.user
         else:
-            logger.error(f"Failed to register user {email} with Supabase Auth")
+            logger.error(f"Failed to sign up user: {email}")
             return None
             
     except Exception as e:
-        logger.error(f"Error during signup for {email}: {str(e)}", exc_info=True)
-        raise
+        logger.error(f"Error signing up user: {str(e)}", exc_info=True)
+        return None
 
 def login(email, password):
-    """Log in a user using Supabase Auth."""
-    logger.info(f"Login attempt for {email}")
-    
+    """Log in a user."""
     try:
-        # Get Supabase client
         supabase = get_supabase()
-        
-        # Attempt login with Supabase
-        auth_response = supabase.auth.sign_in_with_password({
-            "email": email,
-            "password": password
+        response = supabase.auth.sign_in_with_password({
+            'email': email,
+            'password': password
         })
         
-        if auth_response.user and auth_response.session:
-            logger.info(f"User {email} logged in successfully with Supabase Auth")
-            
-            # Get user metadata
-            user_metadata = auth_response.user.user_metadata or {}
-            role = user_metadata.get('role', 'customer')
-            
-            # Log the user metadata for debugging
-            logger.info(f"User metadata: {user_metadata}")
-            
-            return {
-                'session': auth_response.session,
-                'user': auth_response.user
-            }
+        if response.user:
+            logger.info(f"Successfully logged in user: {email}")
+            return response.user
         else:
-            logger.warning(f"Login failed for {email}")
+            logger.error(f"Failed to log in user: {email}")
             return None
             
     except Exception as e:
-        logger.error(f"Error during login for {email}: {str(e)}", exc_info=True)
-        raise
+        logger.error(f"Error logging in user: {str(e)}", exc_info=True)
+        return None
 
-def logout(token):
-    """Log out a user by invalidating their token in Supabase Auth."""
-    logger.info("Logout requested")
-    
+def logout():
+    """Log out the current user."""
     try:
-        # Get Supabase client
         supabase = get_supabase()
-        
-        # Sign out the user
-        supabase.auth.sign_out()
-        logger.info("User logged out successfully from Supabase Auth")
-        
-        return True
+        response = supabase.auth.sign_out()
+        if response:
+            logger.info("Successfully logged out user")
+            return True
+        else:
+            logger.error("Failed to log out user")
+            return False
+            
     except Exception as e:
-        logger.warning(f"Error during logout: {str(e)}")
+        logger.error(f"Error logging out user: {str(e)}", exc_info=True)
         return False
 
-def reset_password_request(email):
-    """Request a password reset via Supabase Auth."""
-    logger.info(f"Password reset requested for {email}")
-    
+def get_current_user():
+    """Get the current user."""
     try:
-        # Get Supabase client
         supabase = get_supabase()
-        
-        # Send password reset email
-        supabase.auth.reset_password_for_email(email)
-        logger.info(f"Password reset email sent to {email}")
-        
-        return True
+        response = supabase.auth.get_user()
+        if response.user:
+            return response.user
+        else:
+            return None
+            
     except Exception as e:
-        logger.error(f"Error requesting password reset for {email}: {str(e)}", exc_info=True)
+        logger.error(f"Error getting current user: {str(e)}", exc_info=True)
+        return None
+
+def reset_password(email):
+    """Reset password for a user."""
+    try:
+        supabase = get_supabase()
+        response = supabase.auth.reset_password_for_email(email)
+        if response:
+            logger.info(f"Successfully sent password reset email to: {email}")
+            return True
+        else:
+            logger.error(f"Failed to send password reset email to: {email}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error resetting password: {str(e)}", exc_info=True)
         return False
+
+def login_required(f):
+    """Decorator to require login for a route."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not get_current_user():
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('auth.login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    """Decorator to require admin role for a route."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = get_current_user()
+        if not user or user.user_metadata.get('role') != 'admin':
+            flash('You do not have permission to access this page.', 'error')
+            return redirect(url_for('home.index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def plumber_required(f):
+    """Decorator to require plumber role for a route."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = get_current_user()
+        if not user or user.user_metadata.get('role') != 'plumber':
+            flash('You do not have permission to access this page.', 'error')
+            return redirect(url_for('home.index'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def generate_token(payload, expires_delta=None):
     """Generate a JWT token."""
@@ -422,47 +436,5 @@ def token_required(f):
             # For web routes, redirect to login
             flash('Your session has expired. Please log in again.', 'warning')
             return redirect(url_for('auth.login'))
-    
-    return decorated
-
-def admin_required(f):
-    """Decorator to require an admin role for a route."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        request_id = f"req-{datetime.utcnow().timestamp()}"
-        
-        # Check if user is set in g
-        if not hasattr(g, 'user'):
-            logger.warning(f"[{request_id}] Admin check failed: No authenticated user")
-            return jsonify({'message': 'Authentication required'}), 401
-        
-        # Check if user has admin role
-        if g.user.get('role') != 'admin':
-            logger.warning(f"[{request_id}] Access denied: User {g.user.get('id')} with role {g.user.get('role')} attempted to access admin route {request.path}")
-            return jsonify({'message': 'Admin role required'}), 403
-        
-        logger.info(f"[{request_id}] Admin access granted to {g.user.get('id')} for {request.path}")
-        return f(*args, **kwargs)
-    
-    return decorated
-
-def plumber_required(f):
-    """Decorator to require a plumber role for a route."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        request_id = f"req-{datetime.utcnow().timestamp()}"
-        
-        # Check if user is set in g
-        if not hasattr(g, 'user'):
-            logger.warning(f"[{request_id}] Plumber check failed: No authenticated user")
-            return jsonify({'message': 'Authentication required'}), 401
-        
-        # Check if user has plumber role
-        if g.user.get('role') != 'plumber':
-            logger.warning(f"[{request_id}] Access denied: User {g.user.get('id')} with role {g.user.get('role')} attempted to access plumber route {request.path}")
-            return jsonify({'message': 'Plumber role required'}), 403
-        
-        logger.info(f"[{request_id}] Plumber access granted to {g.user.get('id')} for {request.path}")
-        return f(*args, **kwargs)
     
     return decorated

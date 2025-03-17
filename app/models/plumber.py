@@ -2,6 +2,7 @@ from datetime import datetime
 import uuid
 import logging
 import json
+from app.services.auth_service import get_supabase
 
 # Get the database logger
 logger = logging.getLogger('database')
@@ -49,11 +50,13 @@ class Plumber:
         logger.info(f"Creating new plumber: {plumber_data.get('company_name')} for user {plumber_data.get('user_id')}")
         
         try:
-            # In a real implementation, this would insert into the database
-            # For now, just create and return a Plumber instance
-            plumber = cls(**plumber_data)
-            logger.info(f"Successfully created plumber with ID {plumber.id}")
-            return plumber
+            supabase = get_supabase()
+            response = supabase.table(cls.TABLE_NAME).insert(plumber_data).execute()
+            if response.data:
+                plumber = cls(**response.data[0])
+                logger.info(f"Successfully created plumber with ID {plumber.id}")
+                return plumber
+            return None
         except Exception as e:
             logger.error(f"Failed to create plumber: {str(e)}", exc_info=True)
             return None
@@ -64,8 +67,10 @@ class Plumber:
         logger.info(f"Fetching plumber with ID {plumber_id}")
         
         try:
-            # In a real implementation, this would query the database
-            # For now, return None
+            supabase = get_supabase()
+            response = supabase.table(cls.TABLE_NAME).select('*').eq('id', plumber_id).execute()
+            if response.data:
+                return cls(**response.data[0])
             logger.info(f"Plumber with ID {plumber_id} not found")
             return None
         except Exception as e:
@@ -78,12 +83,30 @@ class Plumber:
         logger.info(f"Fetching plumber by user ID {user_id}")
         
         try:
-            # In a real implementation, this would query the database
-            # For now, return None
+            supabase = get_supabase()
+            response = supabase.table(cls.TABLE_NAME).select('*').eq('user_id', user_id).execute()
+            if response.data:
+                return cls(**response.data[0])
             logger.info(f"Plumber with user ID {user_id} not found")
             return None
         except Exception as e:
             logger.error(f"Error fetching plumber with user ID {user_id}: {str(e)}", exc_info=True)
+            return None
+
+    @classmethod
+    def get_by_email(cls, email):
+        """Retrieve a plumber by email."""
+        logger.info(f"Fetching plumber with email {email}")
+        
+        try:
+            supabase = get_supabase()
+            response = supabase.table(cls.TABLE_NAME).select('*').eq('email', email).execute()
+            if response.data:
+                return cls(**response.data[0])
+            logger.info(f"Plumber with email {email} not found")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching plumber with email {email}: {str(e)}", exc_info=True)
             return None
     
     def save(self):
@@ -91,10 +114,13 @@ class Plumber:
         logger.info(f"Updating plumber profile for ID {self.id}")
         
         try:
-            # In a real implementation, this would update the database
+            supabase = get_supabase()
             self.updated_at = datetime.utcnow()
-            logger.info(f"Successfully updated plumber profile for ID {self.id}")
-            return True
+            response = supabase.table(self.TABLE_NAME).update(self.__dict__).eq('id', self.id).execute()
+            if response.data:
+                logger.info(f"Successfully updated plumber profile for ID {self.id}")
+                return True
+            return False
         except Exception as e:
             logger.error(f"Failed to update plumber profile for ID {self.id}: {str(e)}", exc_info=True)
             return False
@@ -106,9 +132,10 @@ class Plumber:
         try:
             previous_credits = self.lead_credits
             self.lead_credits += count
-            self.save()
-            logger.info(f"Updated lead credits for plumber {self.id} from {previous_credits} to {self.lead_credits}")
-            return True
+            if self.save():
+                logger.info(f"Updated lead credits for plumber {self.id} from {previous_credits} to {self.lead_credits}")
+                return True
+            return False
         except Exception as e:
             logger.error(f"Failed to add lead credits to plumber {self.id}: {str(e)}", exc_info=True)
             return False
@@ -116,9 +143,15 @@ class Plumber:
     @classmethod
     def find_by_location(cls, latitude, longitude, radius_miles, services=None):
         """Find plumbers within a radius of a location."""
-        # In a real implementation, this would query the database
-        # For now, return an empty list
-        return [] 
+        try:
+            supabase = get_supabase()
+            # In a real implementation, this would use PostGIS to find plumbers within radius
+            # For now, return all plumbers
+            response = supabase.table(cls.TABLE_NAME).select('*').execute()
+            return [cls(**plumber) for plumber in response.data] if response.data else []
+        except Exception as e:
+            logger.error(f"Error finding plumbers by location: {str(e)}", exc_info=True)
+            return []
 
     @classmethod
     def count_all(cls):
@@ -126,9 +159,9 @@ class Plumber:
         logger.info("Counting all plumbers")
         
         try:
-            # For development/testing, return a mock count
-            # In a real implementation, this would query the database
-            return 12
+            supabase = get_supabase()
+            response = supabase.table(cls.TABLE_NAME).select('id', count='exact').execute()
+            return len(response.data) if response.data else 0
         except Exception as e:
             logger.error(f"Error counting plumbers: {str(e)}", exc_info=True)
             return 0
@@ -139,22 +172,9 @@ class Plumber:
         logger.info(f"Fetching {limit} recent plumbers")
         
         try:
-            # For development/testing, return mock plumbers
-            # In a real implementation, this would query the database
-            plumbers = []
-            for i in range(1, limit + 1):
-                plumbers.append(cls(
-                    id=f"plumber-{i}",
-                    user_id=f"user-{i}",
-                    company_name=f"Plumber Company {i}",
-                    contact_name=f"Contact {i}",
-                    email=f"plumber{i}@example.com",
-                    phone=f"555-987-{i:04d}",
-                    lead_credits=i * 5,
-                    is_active=i % 4 != 0,  # 75% active
-                    subscription_status="active" if i % 3 != 0 else "inactive"
-                ))
-            return plumbers
+            supabase = get_supabase()
+            response = supabase.table(cls.TABLE_NAME).select('*').order('created_at', desc=True).limit(limit).execute()
+            return [cls(**plumber) for plumber in response.data] if response.data else []
         except Exception as e:
             logger.error(f"Error fetching recent plumbers: {str(e)}", exc_info=True)
             return []
@@ -165,22 +185,9 @@ class Plumber:
         logger.info("Fetching all plumbers")
         
         try:
-            # For development/testing, return mock plumbers
-            # In a real implementation, this would query the database
-            plumbers = []
-            for i in range(1, 11):
-                plumbers.append(cls(
-                    id=f"plumber-{i}",
-                    user_id=f"user-{i}",
-                    company_name=f"Plumber Company {i}",
-                    contact_name=f"Contact {i}",
-                    email=f"plumber{i}@example.com",
-                    phone=f"555-987-{i:04d}",
-                    lead_credits=i * 5,
-                    is_active=i % 4 != 0,  # 75% active
-                    subscription_status="active" if i % 3 != 0 else "inactive"
-                ))
-            return plumbers
+            supabase = get_supabase()
+            response = supabase.table(cls.TABLE_NAME).select('*').execute()
+            return [cls(**plumber) for plumber in response.data] if response.data else []
         except Exception as e:
             logger.error(f"Error fetching all plumbers: {str(e)}", exc_info=True)
             return []
@@ -191,21 +198,16 @@ class Plumber:
         logger.info(f"Filtering plumbers with status={status}")
         
         try:
-            # For development/testing, return filtered mock plumbers
-            # In a real implementation, this would query the database
-            all_plumbers = cls.get_all()
-            filtered_plumbers = []
+            supabase = get_supabase()
+            query = supabase.table(cls.TABLE_NAME).select('*')
             
-            for plumber in all_plumbers:
-                # Apply status filter if provided
-                if status == 'active' and not plumber.is_active:
-                    continue
-                if status == 'inactive' and plumber.is_active:
-                    continue
-                
-                filtered_plumbers.append(plumber)
+            if status == 'active':
+                query = query.eq('is_active', True)
+            elif status == 'inactive':
+                query = query.eq('is_active', False)
             
-            return filtered_plumbers
+            response = query.execute()
+            return [cls(**plumber) for plumber in response.data] if response.data else []
         except Exception as e:
             logger.error(f"Error filtering plumbers: {str(e)}", exc_info=True)
             return [] 

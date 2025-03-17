@@ -3,6 +3,8 @@ import os
 import sys
 from flask import Blueprint, g, session, request, url_for
 from app.services.auth_service import token_required, admin_required, plumber_required, login
+from app.middleware.auth_middleware import login_required, admin_required, plumber_required
+from app.services.mock.supabase_mock import MockUser
 
 # Add the parent directory to sys.path to allow importing from the app package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -170,3 +172,143 @@ def test_public_routes_bypass_auth(app, client, test_bp):
     # Test accessing the registration page without a token
     response = client.get('/auth/register/plumber')
     assert response.status_code == 200
+
+def test_login_required_no_session(client):
+    """Test login_required decorator with no session."""
+    @client.route('/test')
+    @login_required
+    def test_route():
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 302
+    assert response.location == '/auth/login'
+
+def test_login_required_invalid_user(client):
+    """Test login_required decorator with invalid user."""
+    session['user_id'] = 'invalid-id'
+    
+    @client.route('/test')
+    @login_required
+    def test_route():
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 302
+    assert response.location == '/auth/login'
+    assert 'user_id' not in session
+
+def test_login_required_valid_user(client):
+    """Test login_required decorator with valid user."""
+    user = MockUser(
+        id='test-id',
+        email='test@example.com',
+        user_metadata={'role': 'plumber'}
+    )
+    session['user_id'] = user.id
+    
+    @client.route('/test')
+    @login_required
+    def test_route():
+        assert g.user == user
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 200
+    assert response.data == b'success'
+
+def test_admin_required_no_session(client):
+    """Test admin_required decorator with no session."""
+    @client.route('/test')
+    @admin_required
+    def test_route():
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 302
+    assert response.location == '/auth/login'
+
+def test_admin_required_non_admin(client):
+    """Test admin_required decorator with non-admin user."""
+    user = MockUser(
+        id='test-id',
+        email='test@example.com',
+        user_metadata={'role': 'plumber'}
+    )
+    session['user_id'] = user.id
+    
+    @client.route('/test')
+    @admin_required
+    def test_route():
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 302
+    assert response.location == '/'
+
+def test_admin_required_admin(client):
+    """Test admin_required decorator with admin user."""
+    user = MockUser(
+        id='test-id',
+        email='test@example.com',
+        user_metadata={'role': 'admin'}
+    )
+    session['user_id'] = user.id
+    
+    @client.route('/test')
+    @admin_required
+    def test_route():
+        assert g.user == user
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 200
+    assert response.data == b'success'
+
+def test_plumber_required_no_session(client):
+    """Test plumber_required decorator with no session."""
+    @client.route('/test')
+    @plumber_required
+    def test_route():
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 302
+    assert response.location == '/auth/login'
+
+def test_plumber_required_non_plumber(client):
+    """Test plumber_required decorator with non-plumber user."""
+    user = MockUser(
+        id='test-id',
+        email='test@example.com',
+        user_metadata={'role': 'admin'}
+    )
+    session['user_id'] = user.id
+    
+    @client.route('/test')
+    @plumber_required
+    def test_route():
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 302
+    assert response.location == '/'
+
+def test_plumber_required_plumber(client):
+    """Test plumber_required decorator with plumber user."""
+    user = MockUser(
+        id='test-id',
+        email='test@example.com',
+        user_metadata={'role': 'plumber'}
+    )
+    session['user_id'] = user.id
+    
+    @client.route('/test')
+    @plumber_required
+    def test_route():
+        assert g.user == user
+        return 'success'
+    
+    response = client.get('/test')
+    assert response.status_code == 200
+    assert response.data == b'success'
