@@ -1,82 +1,6 @@
-import uuid
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List
-import logging
-
-logger = logging.getLogger('auth')
-
 class SupabaseMock:
     def __init__(self):
         self.auth = AuthMock()
-        self.plumbers = {}  # Store plumbers for testing
-
-    def table(self, table_name):
-        """Mock table method for database operations."""
-        if table_name == 'plumbers':
-            return PlumberTableMock(self)
-        return None
-
-class PlumberTableMock:
-    def __init__(self, mock):
-        self.mock = mock
-
-    def insert(self, data):
-        """Mock insert operation."""
-        # Store the plumber in the mock's plumbers dictionary
-        plumber_id = data.get('id') or str(uuid.uuid4())
-        self.mock.plumbers[data['email']] = data
-        return self
-
-    def select(self, *args):
-        """Mock select operation."""
-        return self
-
-    def eq(self, field, value):
-        """Mock equality filter."""
-        if field == 'email':
-            plumber = self.mock.plumbers.get(value)
-            if plumber:
-                return ResponseMock([plumber])
-        elif field == 'id':
-            for plumber in self.mock.plumbers.values():
-                if plumber.get('id') == value:
-                    return ResponseMock([plumber])
-        elif field == 'user_id':
-            for plumber in self.mock.plumbers.values():
-                if plumber.get('user_id') == value:
-                    return ResponseMock([plumber])
-        elif field == 'is_active':
-            filtered_plumbers = []
-            for plumber in self.mock.plumbers.values():
-                if plumber.get('is_active') == value:
-                    filtered_plumbers.append(plumber)
-            return ResponseMock(filtered_plumbers)
-        return ResponseMock([])
-
-    def update(self, data):
-        """Mock update operation."""
-        # Find the plumber by ID and update it
-        for email, plumber in self.mock.plumbers.items():
-            if plumber.get('id') == data.get('id'):
-                self.mock.plumbers[email].update(data)
-                return self
-        return self
-
-    def order(self, field, desc=False):
-        """Mock order operation."""
-        return self
-
-    def limit(self, limit):
-        """Mock limit operation."""
-        return self
-
-    def execute(self):
-        """Mock execute operation."""
-        return ResponseMock(list(self.mock.plumbers.values()))
-
-class ResponseMock:
-    def __init__(self, data):
-        self.data = data
 
 class AuthMock:
     def __init__(self):
@@ -103,6 +27,7 @@ class AuthMock:
         user_metadata = options.get('data', {})
         
         # Generate a mock user ID in valid UUID format
+        import uuid
         user_id = str(uuid.uuid4())
         if email == 'admin@example.com':
             user_id = '123e4567-e89b-12d3-a456-426614174000'  # Consistent UUID for admin
@@ -141,6 +66,7 @@ class AuthMock:
             )
         else:
             # For testing, accept any credentials with default plumber role
+            import uuid
             user = MockUser(
                 id=str(uuid.uuid4()),  # Generate a valid UUID
                 email=email,
@@ -169,6 +95,7 @@ class AuthMock:
             )
         else:
             # For testing, return a mock user with plumber role
+            import uuid
             user = MockUser(
                 id=str(uuid.uuid4()),  # Generate a valid UUID
                 email='test@example.com',

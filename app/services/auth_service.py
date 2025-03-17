@@ -13,45 +13,32 @@ import requests
 # Get the auth logger
 logger = logging.getLogger('auth')
 
-class SupabaseClient:
-    _instance = None
-    _client = None
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
-
-    def get_client(self):
-        if self._client is None:
-            raise RuntimeError("Supabase client not initialized")
-        return self._client
-
-    def set_client(self, client):
-        self._client = client
+# Global variable to store Supabase client
+_supabase_client = None
 
 def init_supabase(url, key, testing=False):
     """Initialize the Supabase client."""
+    global _supabase_client
+    
     # Use mock client for testing
     if testing:
         logger.info("Using mock Supabase client for testing")
-        client = SupabaseMock()
-    else:
-        try:
-            client = create_client(url, key)
-            logger.info("Supabase client initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Supabase client: {str(e)}", exc_info=True)
-            raise
-    
-    # Set the client in the singleton
-    SupabaseClient.get_instance().set_client(client)
-    return client
+        _supabase_client = SupabaseMock()
+        return _supabase_client
+        
+    try:
+        _supabase_client = create_client(url, key)
+        logger.info("Supabase client initialized successfully")
+        return _supabase_client
+    except Exception as e:
+        logger.error(f"Failed to initialize Supabase client: {str(e)}", exc_info=True)
+        raise
 
 def get_supabase():
     """Get the Supabase client instance."""
-    return SupabaseClient.get_instance().get_client()
+    if not _supabase_client:
+        raise RuntimeError("Supabase client not initialized")
+    return _supabase_client
 
 def init_admin_user():
     """Initialize admin user in Supabase and local database if it doesn't exist."""
@@ -230,139 +217,111 @@ def sync_user_to_db(supabase_user):
         return MockUser(id=user_id, email=email, role=role)
 
 def signup(email, password, user_metadata=None):
-    """Sign up a new user."""
+    """Register a new user using Supabase Auth."""
+    logger.info(f"Signup attempt for {email} with role {user_metadata.get('role') if user_metadata else 'customer'}")
+    
     try:
+        # Get Supabase client
         supabase = get_supabase()
-        response = supabase.auth.sign_up({
-            'email': email,
-            'password': password,
-            'options': {
-                'data': user_metadata or {}
+        
+        # Create user in Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": email,
+            "password": password,
+            "options": {
+                "data": user_metadata  # This will be stored in user metadata
             }
         })
         
-        if response.user:
-            logger.info(f"Successfully signed up user: {email}")
-            return response.user
+        if auth_response.user:
+            logger.info(f"User {email} registered successfully with Supabase Auth")
+            
+            # Sync to local database
+            try:
+                with current_app.app_context():
+                    user = sync_user_to_db(auth_response.user)
+                    logger.info(f"User {email} synced to local database with ID {user.id}")
+            except Exception as e:
+                logger.error(f"Error syncing user {email} to local database: {str(e)}", exc_info=True)
+            
+            return auth_response.user
         else:
-            logger.error(f"Failed to sign up user: {email}")
+            logger.error(f"Failed to register user {email} with Supabase Auth")
             return None
             
     except Exception as e:
-        logger.error(f"Error signing up user: {str(e)}", exc_info=True)
-        return None
+        logger.error(f"Error during signup for {email}: {str(e)}", exc_info=True)
+        raise
 
 def login(email, password):
-    """Log in a user."""
+    """Log in a user using Supabase Auth."""
+    logger.info(f"Login attempt for {email}")
+    
     try:
+        # Get Supabase client
         supabase = get_supabase()
-        response = supabase.auth.sign_in_with_password({
-            'email': email,
-            'password': password
+        
+        # Attempt login with Supabase
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": email,
+            "password": password
         })
         
-        if response.user:
-            # Set session data
-            session['user_id'] = response.user.id
-            session['token'] = response.session.access_token
+        if auth_response.user and auth_response.session:
+            logger.info(f"User {email} logged in successfully with Supabase Auth")
             
-            logger.info(f"Successfully logged in user: {email}")
-            # Return a dictionary with user info for consistency
+            # Get user metadata
+            user_metadata = auth_response.user.user_metadata or {}
+            role = user_metadata.get('role', 'customer')
+            
+            # Log the user metadata for debugging
+            logger.info(f"User metadata: {user_metadata}")
+            
             return {
-                'user': {
-                    'id': response.user.id,
-                    'email': response.user.email,
-                    'user_metadata': response.user.user_metadata
-                },
-                'session': response.session
+                'session': auth_response.session,
+                'user': auth_response.user
             }
         else:
-            logger.error(f"Failed to log in user: {email}")
+            logger.warning(f"Login failed for {email}")
             return None
             
     except Exception as e:
-        logger.error(f"Error logging in user: {str(e)}", exc_info=True)
-        return None
+        logger.error(f"Error during login for {email}: {str(e)}", exc_info=True)
+        raise
 
-def logout():
-    """Log out the current user."""
+def logout(token):
+    """Log out a user by invalidating their token in Supabase Auth."""
+    logger.info("Logout requested")
+    
     try:
+        # Get Supabase client
         supabase = get_supabase()
-        response = supabase.auth.sign_out()
-        if response:
-            # Clear the session
-            session.clear()
-            logger.info("Successfully logged out user")
-            return True
-        else:
-            logger.error("Failed to log out user")
-            return False
-            
+        
+        # Sign out the user
+        supabase.auth.sign_out()
+        logger.info("User logged out successfully from Supabase Auth")
+        
+        return True
     except Exception as e:
-        logger.error(f"Error logging out user: {str(e)}", exc_info=True)
+        logger.warning(f"Error during logout: {str(e)}")
         return False
 
-def get_current_user():
-    """Get the current user."""
+def reset_password_request(email):
+    """Request a password reset via Supabase Auth."""
+    logger.info(f"Password reset requested for {email}")
+    
     try:
+        # Get Supabase client
         supabase = get_supabase()
-        response = supabase.auth.get_user()
-        if response.user:
-            return response.user
-        else:
-            return None
-            
+        
+        # Send password reset email
+        supabase.auth.reset_password_for_email(email)
+        logger.info(f"Password reset email sent to {email}")
+        
+        return True
     except Exception as e:
-        logger.error(f"Error getting current user: {str(e)}", exc_info=True)
-        return None
-
-def reset_password(email):
-    """Reset password for a user."""
-    try:
-        supabase = get_supabase()
-        response = supabase.auth.reset_password_for_email(email)
-        if response:
-            logger.info(f"Successfully sent password reset email to: {email}")
-            return True
-        else:
-            logger.error(f"Failed to send password reset email to: {email}")
-            return False
-            
-    except Exception as e:
-        logger.error(f"Error resetting password: {str(e)}", exc_info=True)
+        logger.error(f"Error requesting password reset for {email}: {str(e)}", exc_info=True)
         return False
-
-def login_required(f):
-    """Decorator to require login for a route."""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not get_current_user():
-            flash('Please log in to access this page.', 'error')
-            return redirect(url_for('auth.handle_login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-def admin_required(f):
-    """Decorator to require admin role for a route."""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        user = get_current_user()
-        if not user or user.user_metadata.get('role') != 'admin':
-            flash('You do not have permission to access this page.', 'error')
-            return redirect(url_for('home.index'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-def plumber_required(f):
-    """Decorator to require plumber role for a route."""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        user = get_current_user()
-        if not user or user.user_metadata.get('role') != 'plumber':
-            flash('You do not have permission to access this page.', 'error')
-            return redirect(url_for('home.index'))
-        return f(*args, **kwargs)
-    return decorated_function
 
 def generate_token(payload, expires_delta=None):
     """Generate a JWT token."""
@@ -420,7 +379,7 @@ def token_required(f):
             
             # For web routes, redirect to login
             flash('Please log in to access this page.', 'warning')
-            return redirect(url_for('auth.handle_login'))
+            return redirect(url_for('auth.login'))
         
         try:
             # Get Supabase client
@@ -462,6 +421,48 @@ def token_required(f):
             
             # For web routes, redirect to login
             flash('Your session has expired. Please log in again.', 'warning')
-            return redirect(url_for('auth.handle_login'))
+            return redirect(url_for('auth.login'))
+    
+    return decorated
+
+def admin_required(f):
+    """Decorator to require an admin role for a route."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        request_id = f"req-{datetime.utcnow().timestamp()}"
+        
+        # Check if user is set in g
+        if not hasattr(g, 'user'):
+            logger.warning(f"[{request_id}] Admin check failed: No authenticated user")
+            return jsonify({'message': 'Authentication required'}), 401
+        
+        # Check if user has admin role
+        if g.user.get('role') != 'admin':
+            logger.warning(f"[{request_id}] Access denied: User {g.user.get('id')} with role {g.user.get('role')} attempted to access admin route {request.path}")
+            return jsonify({'message': 'Admin role required'}), 403
+        
+        logger.info(f"[{request_id}] Admin access granted to {g.user.get('id')} for {request.path}")
+        return f(*args, **kwargs)
+    
+    return decorated
+
+def plumber_required(f):
+    """Decorator to require a plumber role for a route."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        request_id = f"req-{datetime.utcnow().timestamp()}"
+        
+        # Check if user is set in g
+        if not hasattr(g, 'user'):
+            logger.warning(f"[{request_id}] Plumber check failed: No authenticated user")
+            return jsonify({'message': 'Authentication required'}), 401
+        
+        # Check if user has plumber role
+        if g.user.get('role') != 'plumber':
+            logger.warning(f"[{request_id}] Access denied: User {g.user.get('id')} with role {g.user.get('role')} attempted to access plumber route {request.path}")
+            return jsonify({'message': 'Plumber role required'}), 403
+        
+        logger.info(f"[{request_id}] Plumber access granted to {g.user.get('id')} for {request.path}")
+        return f(*args, **kwargs)
     
     return decorated
