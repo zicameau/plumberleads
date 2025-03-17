@@ -18,8 +18,6 @@ def app():
 def _db(app):
     """Create database for the tests."""
     with app.app_context():
-        # Initialize the database
-        db.init_app(app)
         # Create all tables
         Base.metadata.create_all(db.engine)
         yield db
