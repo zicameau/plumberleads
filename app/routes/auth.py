@@ -38,12 +38,15 @@ def register_plumber():
     """Registration page for plumbers."""
     if request.method == 'POST':
         # Get form data
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Separate plumber profile data from auth data
         plumber_data = {
-            'email': request.form.get('email'),
-            'password': request.form.get('password'),
-            'confirm_password': request.form.get('confirm_password'),
             'company_name': request.form.get('company_name'),
             'contact_name': request.form.get('contact_name'),
+            'email': email,  # Include email in profile
             'phone': request.form.get('phone'),
             'address': request.form.get('address'),
             'city': request.form.get('city'),
@@ -56,14 +59,13 @@ def register_plumber():
         }
         
         # Basic validation
-        if not all([plumber_data['email'], plumber_data['password'], 
-                   plumber_data['confirm_password'], plumber_data['company_name']]):
+        if not all([email, password, confirm_password, plumber_data['company_name']]):
             flash('All required fields must be filled out', 'error')
             return render_template('auth/register_plumber.html', 
                                 form_data=plumber_data,
                                 services=PLUMBING_SERVICES)
             
-        if plumber_data['password'] != plumber_data['confirm_password']:
+        if password != confirm_password:
             flash('Passwords do not match', 'error')
             return render_template('auth/register_plumber.html', 
                                 form_data=plumber_data,
@@ -94,7 +96,7 @@ def register_plumber():
             'company_name': plumber_data['company_name']
         }
         
-        user = signup(plumber_data['email'], plumber_data['password'], user_metadata)
+        user = signup(email, password, user_metadata)
         
         if user:
             # Create plumber profile
@@ -108,7 +110,7 @@ def register_plumber():
                 flash('Registration successful but profile creation failed. Please contact support.', 'warning')
             
             # Store user info for redirection after email confirmation
-            session['registered_email'] = plumber_data['email']
+            session['registered_email'] = email
             session['registered_role'] = 'plumber'
             
             logger.info(f"Plumber registration successful for {email}")
