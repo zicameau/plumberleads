@@ -2,6 +2,7 @@ import pytest
 import os
 from flask import session
 from app.services.auth_service import init_admin_user, login, signup, logout, reset_password_request
+from app.services.supabase import get_supabase
 
 def test_signup_and_login(app, client):
     """Test user signup and login functionality."""
@@ -117,3 +118,60 @@ def test_logout_flow(app, client, test_user):
         'Authorization': f'Bearer {session.get("token", "")}'
     })
     assert response.status_code == 401
+
+def test_plumber_registration_flow(app, client):
+    """Test the complete plumber registration flow."""
+    with app.test_request_context():
+        # Test registration page loads
+        response = client.get('/auth/register/plumber')
+        assert response.status_code == 200
+        
+        # Test successful registration redirects
+        response = client.post('/auth/register/plumber', data={
+            'email': 'test_plumber@example.com',
+            'password': 'password123',
+            'confirm_password': 'password123',
+            'company_name': 'Test Plumbing LLC',
+            'contact_name': 'John Doe',
+            'phone': '555-123-4567'
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b'Registration successful' in response.data
+
+def test_login_page(app, client):
+    """Test login page functionality."""
+    # Test login page loads
+    response = client.get('/auth/login')
+    assert response.status_code == 200
+    
+    # Test login with invalid credentials shows error
+    response = client.post('/auth/login', data={
+        'email': 'nonexistent@example.com',
+        'password': 'wrongpassword'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b'Invalid email or password' in response.data
+
+def test_password_reset_flow(app, client):
+    """Test password reset request flow."""
+    # Test reset password page loads
+    response = client.get('/auth/reset-password')
+    assert response.status_code == 200
+    
+    # Test submitting reset password request
+    response = client.post('/auth/reset-password', data={
+        'email': 'test@example.com'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b'Password reset instructions' in response.data
+
+def test_logout_flow(app, client, test_plumber):
+    """Test logout functionality."""
+    # First ensure we're logged in
+    with client:
+        client.get('/')  # Establish session
+        
+        # Test logout redirects to home
+        response = client.get('/auth/logout', follow_redirects=True)
+        assert response.status_code == 200
+        assert b'logged out' in response.data.lower()

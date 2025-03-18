@@ -56,16 +56,41 @@ def test_role_required_decorator(app, client, test_plumber):
     })
     assert response.status_code == 403
 
-def test_public_routes(app, client):
-    """Test public routes are accessible without authentication."""
-    # Test home page
-    response = client.get('/')
-    assert response.status_code == 200
+def test_public_routes_access(app, client):
+    """Test that public routes are accessible without authentication."""
+    public_routes = [
+        '/',
+        '/auth/login',
+        '/auth/register/plumber',
+        '/auth/reset-password',
+        '/health'
+    ]
     
-    # Test login page
-    response = client.get('/auth/login')
-    assert response.status_code == 200
+    for route in public_routes:
+        response = client.get(route)
+        assert response.status_code == 200
+
+def test_protected_routes_redirect(app, client):
+    """Test that protected routes redirect to login when not authenticated."""
+    protected_routes = [
+        '/api/profile',
+        '/api/plumber/profile',
+        '/api/admin/dashboard'
+    ]
     
-    # Test registration page
-    response = client.get('/auth/register/plumber')
-    assert response.status_code == 200
+    for route in protected_routes:
+        response = client.get(route, follow_redirects=True)
+        assert b'Please log in' in response.data
+
+def test_api_routes_unauthorized(app, client):
+    """Test that API routes return 401 when not authenticated."""
+    api_routes = [
+        '/api/profile',
+        '/api/plumber/profile',
+        '/api/admin/dashboard'
+    ]
+    
+    for route in api_routes:
+        response = client.get(route, headers={'Accept': 'application/json'})
+        assert response.status_code == 401
+        assert 'error' in response.json

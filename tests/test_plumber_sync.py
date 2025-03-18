@@ -1,4 +1,5 @@
 import pytest
+from flask import session
 from app.services.supabase import get_supabase
 
 def test_plumber_registration_and_sync(app, client):
@@ -116,4 +117,57 @@ def test_plumber_data_persistence(app, client):
     assert response.status_code == 200
     profile = response.json
     assert profile['company_name'] == plumber_data['company_name']
-    assert profile['contact_name'] == plumber_data['contact_name'] 
+    assert profile['contact_name'] == plumber_data['contact_name']
+
+def test_plumber_registration_page(app, client):
+    """Test plumber registration page and form."""
+    # Test registration page loads
+    response = client.get('/auth/register/plumber')
+    assert response.status_code == 200
+    assert b'Register' in response.data
+    
+    # Test form fields are present
+    assert b'email' in response.data.lower()
+    assert b'password' in response.data.lower()
+    assert b'company name' in response.data.lower()
+    assert b'contact name' in response.data.lower()
+    assert b'phone' in response.data.lower()
+
+def test_plumber_profile_page(app, client, test_plumber):
+    """Test plumber profile page when authenticated."""
+    with client:
+        # Login first
+        client.post('/auth/login', data={
+            'email': test_plumber['user']['email'],
+            'password': 'password123'
+        })
+        
+        # Test profile page loads
+        response = client.get('/api/plumber/profile')
+        assert response.status_code == 200
+        
+        # Verify profile data is displayed
+        assert test_plumber['profile']['company_name'].encode() in response.data
+        assert test_plumber['profile']['contact_name'].encode() in response.data
+
+def test_plumber_profile_update_form(app, client, test_plumber):
+    """Test plumber profile update form."""
+    with client:
+        # Login first
+        client.post('/auth/login', data={
+            'email': test_plumber['user']['email'],
+            'password': 'password123'
+        })
+        
+        # Test profile update
+        update_data = {
+            'company_name': 'Updated Company Name',
+            'contact_name': 'Updated Contact',
+            'phone': '555-999-8888'
+        }
+        
+        response = client.post('/api/plumber/profile', 
+                             data=update_data,
+                             follow_redirects=True)
+        assert response.status_code == 200
+        assert b'Profile updated successfully' in response.data 
