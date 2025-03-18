@@ -70,28 +70,32 @@ def reset_database(conn_params, schema_file):
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        logger.info("🗑️ Dropping all tables (if they exist)...")
+        logger.info("🗑️ Dropping schemas and tables...")
         
-        # Drop all tables in the public schema
+        # Drop the auth schema and public schema objects
         cursor.execute("""
+            DROP SCHEMA IF EXISTS auth CASCADE;
+            
             DO $$ DECLARE
                 r RECORD;
             BEGIN
+                -- Drop all tables in public schema
                 FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
                     EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
                 END LOOP;
-            END $$;
-        """)
-        
-        # Drop all types
-        cursor.execute("""
-            DO $$ DECLARE
-                r RECORD;
-            BEGIN
+                
+                -- Drop all types in public schema
                 FOR r IN (SELECT typname FROM pg_type 
                           WHERE typtype = 'e' AND typnamespace = 
                           (SELECT oid FROM pg_namespace WHERE nspname = 'public')) LOOP
                     EXECUTE 'DROP TYPE IF EXISTS ' || quote_ident(r.typname) || ' CASCADE';
+                END LOOP;
+                
+                -- Drop all functions in public schema
+                FOR r IN (SELECT proname, oid::regprocedure as fullname
+                         FROM pg_proc 
+                         WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')) LOOP
+                    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.fullname || ' CASCADE';
                 END LOOP;
             END $$;
         """)
@@ -100,6 +104,9 @@ def reset_database(conn_params, schema_file):
         logger.info("🔄 Applying schema...")
         schema_sql = read_sql_file(schema_file)
         cursor.execute(schema_sql)
+        
+        # Create extension if not exists
+        cursor.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
         
         cursor.close()
         conn.close()

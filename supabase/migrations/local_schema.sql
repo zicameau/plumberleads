@@ -40,46 +40,77 @@ BEGIN
     END IF;
 END$$;
 
--- Create local users table (without auth schema dependency)
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email TEXT UNIQUE NOT NULL,
-    role user_role NOT NULL DEFAULT 'plumber',
-    created_at TIMESTAMPTZ DEFAULT NOW()
+-- Create auth schema if it doesn't exist
+CREATE SCHEMA IF NOT EXISTS auth;
+
+-- Create auth.users table if it doesn't exist (mock of Supabase auth.users for local development)
+CREATE TABLE IF NOT EXISTS auth.users (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    email text UNIQUE,
+    encrypted_password text,
+    role text DEFAULT 'customer',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
 );
 
--- Create plumbers table with local reference
+-- Function to get authenticated user ID (mock of Supabase auth.uid() for local development)
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid AS $$
+BEGIN
+    RETURN current_setting('auth.user_id', true)::uuid;
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create plumbers table
 CREATE TABLE IF NOT EXISTS plumbers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    company_name TEXT NOT NULL,
-    contact_name TEXT,
-    email TEXT NOT NULL,
-    phone TEXT,
-    address TEXT,
-    city TEXT,
-    state TEXT,
-    zip_code TEXT,
-    service_radius INTEGER DEFAULT 25,
-    services_offered service_type[] DEFAULT '{}',
-    license_number TEXT,
-    is_insured BOOLEAN DEFAULT FALSE,
-    latitude DOUBLE PRECISION,
-    longitude DOUBLE PRECISION,
-    is_active BOOLEAN DEFAULT TRUE,
-    subscription_status subscription_status DEFAULT 'inactive',
-    stripe_customer_id TEXT,
-    stripe_subscription_id TEXT,
-    lead_credits INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT plumbers_email_unique UNIQUE (email)
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) NOT NULL UNIQUE,
+    company_name text,
+    contact_name text,
+    phone text,
+    email text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
 );
 
--- Create spatial index for plumbers - FIXED SYNTAX
-CREATE INDEX IF NOT EXISTS plumbers_location_idx ON plumbers USING GIST (
-    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
-);
+-- Set up RLS (Row Level Security) policies
+ALTER TABLE plumbers ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own plumber profile" ON plumbers;
+DROP POLICY IF EXISTS "Users can update their own plumber profile" ON plumbers;
+DROP POLICY IF EXISTS "Plumbers can insert their profile" ON plumbers;
+
+-- Create new policies
+CREATE POLICY "Users can view their own plumber profile"
+    ON plumbers FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own plumber profile"
+    ON plumbers FOR UPDATE
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Plumbers can insert their profile"
+    ON plumbers FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+-- Create trigger to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS update_plumbers_updated_at ON plumbers;
+
+CREATE TRIGGER update_plumbers_updated_at
+    BEFORE UPDATE ON plumbers
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TABLE IF NOT EXISTS leads (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -149,8 +180,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_plumbers_timestamp
-BEFORE UPDATE ON plumbers
+CREATE TRIGGER update_users_timestamp
+BEFORE UPDATE ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
 
 CREATE TRIGGER update_leads_timestamp

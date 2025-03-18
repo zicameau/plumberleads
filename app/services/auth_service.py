@@ -1,159 +1,72 @@
 import os
-import jwt
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import current_app, request, g, jsonify, session, flash, redirect, url_for
-from app.models.base import db, User, Plumber, UserRole
 from app.services.supabase import init_supabase, get_supabase
 from .mock.supabase_mock import SupabaseMock
-import uuid
 import requests
-from app.models.plumber import Plumber
 
 # Get the auth logger
 logger = logging.getLogger('auth')
 
 def init_admin_user():
-    """Initialize admin user in Supabase and local database if it doesn't exist."""
+    """Initialize admin user in Supabase if it doesn't exist."""
     admin_email = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
-    admin_password = os.environ.get('ADMIN_PASSWORD')
+    admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')  # Default password for testing
     supabase_service_key = os.environ.get('SUPABASE_SERVICE_KEY')
     
-    if not admin_password:
+    if not admin_password and not current_app.config.get('TESTING', False):
         logger.warning("ADMIN_PASSWORD environment variable not set. Admin user will not be created.")
         return
     
-    if not supabase_service_key:
+    if not supabase_service_key and not current_app.config.get('TESTING', False):
         logger.warning("SUPABASE_SERVICE_KEY environment variable not set. Admin user will not be created.")
         return
     
     logger.info(f"Checking if admin user {admin_email} exists")
     
     try:
-        # Check if admin user exists in local database
-        with current_app.app_context():
-            admin_user = db.session.query(User).filter_by(email=admin_email).first()
-            
-            if not admin_user:
-                logger.info(f"Admin user {admin_email} not found in local database, creating...")
-                
-                # Try to create admin user in Supabase if not in testing mode
-                if not current_app.config.get('TESTING', False):
-                    try:
-                        # Use admin API to create user
-                        headers = {
-                            'apikey': supabase_service_key,
-                            'Authorization': f'Bearer {supabase_service_key}',
-                            'Content-Type': 'application/json'
-                        }
-                        
-                        # First check if user exists
-                        response = requests.get(
-                            f"{current_app.config['SUPABASE_URL']}/auth/v1/admin/users",
-                            headers=headers
-                        )
-                        
-                        if response.status_code != 200:
-                            raise Exception(f"Failed to get users: {response.text}")
-                        
-                        users = response.json()
-                        existing_user = next((user for user in users if user['email'] == admin_email), None)
-                        
-                        if existing_user:
-                            # Update existing user's metadata
-                            user_id = existing_user['id']
-                            response = requests.put(
-                                f"{current_app.config['SUPABASE_URL']}/auth/v1/admin/users/{user_id}",
-                                headers=headers,
-                                json={
-                                    "user_metadata": {
-                                        "role": "admin",
-                                        "name": "Admin User"
-                                    }
-                                }
-                            )
-                            
-                            if response.status_code != 200:
-                                raise Exception(f"Failed to update user metadata: {response.text}")
-                            
-                            admin_id = user_id
-                            logger.info(f"Updated existing user {admin_email} with admin role")
-                        else:
-                            # Create new user with admin role
-                            response = requests.post(
-                                f"{current_app.config['SUPABASE_URL']}/auth/v1/admin/users",
-                                headers=headers,
-                                json={
-                                    "email": admin_email,
-                                    "password": admin_password,
-                                    "email_confirm": True,
-                                    "user_metadata": {
-                                        "role": "admin",
-                                        "name": "Admin User"
-                                    }
-                                }
-                            )
-                            
-                            if response.status_code != 200:
-                                raise Exception(f"Failed to create admin user: {response.text}")
-                            
-                            admin_id = response.json()['id']
-                            logger.info(f"Created new admin user {admin_email} with ID {admin_id}")
-                    except Exception as e:
-                        logger.error(f"Error managing admin user in Supabase: {str(e)}", exc_info=True)
-                        # Continue with local database creation even if Supabase fails
-                        # Generate a valid UUID for admin user
-                        admin_id = str(uuid.uuid4())
-                else:
-                    # For testing, use a fixed UUID
-                    admin_id = '123e4567-e89b-12d3-a456-426614174000'  # Valid UUID format
-                
-                # Create admin user in local database
-                admin_user = User(
-                    id=admin_id,
-                    email=admin_email,
-                    role=UserRole.admin
-                )
-                db.session.add(admin_user)
-                db.session.commit()
-                logger.info(f"Admin user {admin_email} created in local database with ID {admin_id}")
-            else:
-                logger.info(f"Admin user {admin_email} already exists in local database")
-    except Exception as e:
-        logger.error(f"Error initializing admin user: {str(e)}", exc_info=True)
-
-def sync_user_to_db(supabase_user):
-    """Sync Supabase user to local database."""
-    try:
-        # Check if user exists
-        user = User.query.filter_by(id=supabase_user.id).first()
-        
-        if not user:
-            # Create new user
-            user = User(
-                id=supabase_user.id,
-                email=supabase_user.email,
-                role=UserRole(supabase_user.user_metadata.get('role', 'customer')),
-                created_at=datetime.fromisoformat(supabase_user.created_at),
-                updated_at=datetime.fromisoformat(supabase_user.updated_at)
-            )
-            db.session.add(user)
+        # Create admin user in Supabase
+        supabase = get_supabase()
+        if current_app.config.get('TESTING', False):
+            # In test mode, use the mock client's signup method
+            auth_response = supabase.auth.sign_up({
+                'email': admin_email,
+                'password': admin_password,
+                'options': {
+                    'data': {
+                        'role': 'admin'
+                    }
+                }
+            })
         else:
-            # Update existing user
-            user.email = supabase_user.email
-            user.role = UserRole(supabase_user.user_metadata.get('role', user.role.value))
-            user.updated_at = datetime.fromisoformat(supabase_user.updated_at)
-        
-        db.session.commit()
-        return user
+            # Use admin API to create user in production
+            headers = {
+                'apikey': supabase_service_key,
+                'Authorization': f'Bearer {supabase_service_key}',
+                'Content-Type': 'application/json'
+            }
+            response = requests.post(
+                f"{os.environ.get('SUPABASE_URL')}/auth/v1/admin/users",
+                headers=headers,
+                json={
+                    'email': admin_email,
+                    'password': admin_password,
+                    'email_confirm': True,
+                    'user_metadata': {'role': 'admin'}
+                }
+            )
+            response.raise_for_status()
+            
+        logger.info(f"Admin user {admin_email} created successfully")
+            
     except Exception as e:
-        print(f"Error syncing user to database: {str(e)}")
-        db.session.rollback()
-        return None
+        logger.error(f"Error creating admin user: {str(e)}")
+        raise
 
 def signup(email, password, user_metadata=None):
-    """Register a new user with Supabase Auth and sync to local database."""
+    """Register a new user with Supabase Auth."""
     try:
         # Register with Supabase Auth
         auth_response = get_supabase().auth.sign_up({
@@ -167,27 +80,27 @@ def signup(email, password, user_metadata=None):
         if not auth_response.user:
             return None
             
-        # Sync user to local database
-        user = sync_user_to_db(auth_response.user)
-        
-        # If this is a plumber registration, create plumber profile
-        if user and user.role == UserRole.plumber:
+        # If this is a plumber registration, create plumber profile in Supabase
+        if user_metadata and user_metadata.get('role') == 'plumber':
+            supabase = get_supabase()
             plumber_data = {
-                'user_id': user.id,
+                'user_id': auth_response.user.id,
                 'company_name': user_metadata.get('company_name', ''),
                 'contact_name': user_metadata.get('contact_name', ''),
                 'phone': user_metadata.get('phone', ''),
-                'email': email
+                'email': email,
+                'created_at': datetime.utcnow().isoformat(),
+                'updated_at': datetime.utcnow().isoformat()
             }
-            Plumber.create(plumber_data)
+            supabase.table('plumbers').insert(plumber_data).execute()
         
-        return user
+        return auth_response.user
     except Exception as e:
-        print(f"Error in signup: {str(e)}")
+        logger.error(f"Error in signup: {str(e)}")
         return None
 
 def login(email, password):
-    """Login user with Supabase Auth and sync to local database."""
+    """Login user with Supabase Auth."""
     try:
         # Login with Supabase Auth
         auth_response = get_supabase().auth.sign_in_with_password({
@@ -198,30 +111,13 @@ def login(email, password):
         if not auth_response.user:
             return None
             
-        # Sync user to local database
-        user = sync_user_to_db(auth_response.user)
-        
-        # If this is a plumber, ensure plumber profile exists
-        if user and user.role == UserRole.plumber:
-            plumber = Plumber.get_by_user_id(user.id)
-            if not plumber:
-                # Create basic plumber profile if it doesn't exist
-                plumber_data = {
-                    'user_id': user.id,
-                    'company_name': '',
-                    'contact_name': '',
-                    'phone': '',
-                    'email': email
-                }
-                Plumber.create(plumber_data)
-        
-        return user
+        return auth_response
     except Exception as e:
-        print(f"Error in login: {str(e)}")
+        logger.error(f"Error in login: {str(e)}")
         return None
 
-def logout(token):
-    """Log out a user by invalidating their token in Supabase Auth."""
+def logout():
+    """Log out a user using Supabase Auth."""
     logger.info("Logout requested")
     
     try:
@@ -254,54 +150,15 @@ def reset_password_request(email):
         logger.error(f"Error requesting password reset for {email}: {str(e)}", exc_info=True)
         return False
 
-def generate_token(payload, expires_delta=None):
-    """Generate a JWT token."""
-    now = datetime.utcnow()
-    if not expires_delta:
-        expires_delta = timedelta(days=1)
-    payload_copy = payload.copy()
-    exp = now + expires_delta
-    payload_copy.update({"exp": exp, "iat": now, "sub": payload.get("id", "")})
-    
-    secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    token = jwt.encode(payload_copy, secret_key, algorithm='HS256')
-    
-    logger.info(f"Generated token for user {payload.get('id')} with role {payload.get('role')}")
-    return token
-
-def decode_token(token):
-    """Decode a JWT token."""
-    secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    try:
-        return jwt.decode(
-            token,
-            secret_key,
-            algorithms=['HS256']
-        )
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
-
 def token_required(f):
-    """Decorator to require a valid token for a route."""
+    """Decorator to require Supabase authentication for a route."""
     @wraps(f)
     def decorated(*args, **kwargs):
         request_id = f"req-{datetime.utcnow().timestamp()}"
         
-        # Get token from Authorization header or session
-        token = None
-        
-        # Check Authorization header first
+        # Get access token from Authorization header
         auth_header = request.headers.get('Authorization')
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-        
-        # If no token in header, check session
-        if not token and 'token' in session:
-            token = session['token']
-        
-        if not token:
+        if not auth_header or not auth_header.startswith('Bearer '):
             logger.warning(f"[{request_id}] No token found for request to {request.path}")
             
             # For API routes, return JSON response
@@ -311,6 +168,8 @@ def token_required(f):
             # For web routes, redirect to login
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login'))
+            
+        token = auth_header.split(' ')[1]
         
         try:
             # Get Supabase client
@@ -342,9 +201,6 @@ def token_required(f):
             return f(*args, **kwargs)
         except Exception as e:
             logger.warning(f"[{request_id}] Authentication error for request to {request.path}: {str(e)}")
-            
-            # Clear session
-            session.clear()
             
             # For API routes, return JSON response
             if request.path.startswith('/api/'):
