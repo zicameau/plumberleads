@@ -71,11 +71,14 @@ def test_user(supabase, admin_headers):
     
     yield user_data
     
-    # Cleanup: Delete the test user
-    requests.delete(
-        f"{os.getenv('SUPABASE_URL')}/auth/v1/admin/users/{user_data['id']}",
-        headers=admin_headers
-    )
+    try:
+        # Cleanup: Delete the test user
+        requests.delete(
+            f"{os.getenv('SUPABASE_URL')}/auth/v1/admin/users/{user_data['id']}",
+            headers=admin_headers
+        )
+    except Exception as e:
+        print(f"Error cleaning up test user: {e}")
 
 @pytest.fixture
 def test_plumber(supabase, admin_headers):
@@ -88,7 +91,12 @@ def test_plumber(supabase, admin_headers):
             'email': 'plumber@example.com',
             'password': 'password123',
             'email_confirm': True,
-            'user_metadata': {'role': 'plumber'}
+            'user_metadata': {
+                'role': 'plumber',
+                'company_name': 'Test Plumbing Co.',
+                'contact_name': 'John Doe',
+                'phone': '555-123-4567'
+            }
         }
     )
     response.raise_for_status()
@@ -111,12 +119,15 @@ def test_plumber(supabase, admin_headers):
         'profile': profile_data
     }
     
-    # Cleanup: Delete the test plumber
-    # First delete the profile
-    supabase.table('plumbers').delete().eq('user_id', user_data['id']).execute()
-    
-    # Then delete the user
-    requests.delete(
-        f"{os.getenv('SUPABASE_URL')}/auth/v1/admin/users/{user_data['id']}",
-        headers=admin_headers
-    ) 
+    try:
+        # Cleanup: Delete the test plumber
+        # First delete the profile
+        supabase.table('plumbers').delete().eq('user_id', user_data['id']).execute()
+        
+        # Then delete the user
+        requests.delete(
+            f"{os.getenv('SUPABASE_URL')}/auth/v1/admin/users/{user_data['id']}",
+            headers=admin_headers
+        )
+    except Exception as e:
+        print(f"Error cleaning up test plumber: {e}") 
