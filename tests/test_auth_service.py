@@ -7,10 +7,13 @@ def test_signup_and_login(app, client):
     """Test user signup and login functionality."""
     with app.test_request_context():
         # Test signup
-        response = client.post('/auth/register', data={
+        response = client.post('/auth/register/plumber', data={
             'email': 'new_user@example.com',
             'password': 'password123',
-            'role': 'customer'
+            'confirm_password': 'password123',
+            'company_name': 'Test Company',
+            'contact_name': 'John Doe',
+            'phone': '555-123-4567'
         })
         assert response.status_code == 200
         
@@ -20,7 +23,7 @@ def test_signup_and_login(app, client):
             'password': 'password123'
         })
         assert response.status_code == 200
-        assert response.json.get('access_token') is not None
+        assert 'token' in session
 
 def test_admin_user_creation(app, client):
     """Test admin user initialization."""
@@ -38,7 +41,7 @@ def test_admin_user_creation(app, client):
             'password': 'admin123'
         })
         assert response.status_code == 200
-        assert response.json.get('access_token') is not None
+        assert 'token' in session
 
 def test_plumber_registration(app, client):
     """Test plumber registration with profile creation."""
@@ -47,13 +50,13 @@ def test_plumber_registration(app, client):
         plumber_data = {
             'email': 'new_plumber@example.com',
             'password': 'password123',
+            'confirm_password': 'password123',
             'company_name': 'Test Plumbing LLC',
             'contact_name': 'Jane Doe',
-            'phone': '555-987-6543',
-            'role': 'plumber'
+            'phone': '555-987-6543'
         }
         
-        response = client.post('/auth/register', data=plumber_data)
+        response = client.post('/auth/register/plumber', data=plumber_data)
         assert response.status_code == 200
         
         # Login as plumber
@@ -62,12 +65,11 @@ def test_plumber_registration(app, client):
             'password': plumber_data['password']
         })
         assert response.status_code == 200
-        access_token = response.json.get('access_token')
-        assert access_token is not None
+        assert 'token' in session
         
         # Verify plumber profile
         response = client.get('/api/plumber/profile', headers={
-            'Authorization': f'Bearer {access_token}'
+            'Authorization': f'Bearer {session["token"]}'
         })
         assert response.status_code == 200
         profile = response.json
@@ -97,23 +99,21 @@ def test_logout_flow(app, client, test_user):
         'password': 'password123'
     })
     assert response.status_code == 200
-    access_token = response.json.get('access_token')
-    assert access_token is not None
+    assert 'token' in session
     
     # Test accessing a protected route
     response = client.get('/api/profile', headers={
-        'Authorization': f'Bearer {access_token}'
+        'Authorization': f'Bearer {session["token"]}'
     })
     assert response.status_code == 200
     
     # Test logout
-    response = client.get('/auth/logout', headers={
-        'Authorization': f'Bearer {access_token}'
-    })
+    response = client.get('/auth/logout')
     assert response.status_code == 200
+    assert 'token' not in session
     
     # Verify can't access protected route after logout
     response = client.get('/api/profile', headers={
-        'Authorization': f'Bearer {access_token}'
+        'Authorization': f'Bearer {session.get("token", "")}'
     })
     assert response.status_code == 401

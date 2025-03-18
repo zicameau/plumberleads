@@ -16,12 +16,11 @@ def test_token_required_decorator(app, client, test_user):
         'password': 'password123'
     })
     assert response.status_code == 200
-    access_token = response.json.get('access_token')
-    assert access_token is not None
+    assert 'token' in session
     
     # Test accessing a protected route with valid token
     response = client.get('/api/profile', headers={
-        'Authorization': f'Bearer {access_token}'
+        'Authorization': f'Bearer {session["token"]}'
     })
     assert response.status_code == 200
     
@@ -43,18 +42,17 @@ def test_role_required_decorator(app, client, test_plumber):
         'password': 'password123'
     })
     assert response.status_code == 200
-    access_token = response.json.get('access_token')
-    assert access_token is not None
+    assert 'token' in session
     
     # Test accessing plumber route with plumber role
     response = client.get('/api/plumber/profile', headers={
-        'Authorization': f'Bearer {access_token}'
+        'Authorization': f'Bearer {session["token"]}'
     })
     assert response.status_code == 200
     
     # Test accessing admin route with plumber role (should fail)
     response = client.get('/api/admin/dashboard', headers={
-        'Authorization': f'Bearer {access_token}'
+        'Authorization': f'Bearer {session["token"]}'
     })
     assert response.status_code == 403
 
@@ -69,5 +67,5 @@ def test_public_routes(app, client):
     assert response.status_code == 200
     
     # Test registration page
-    response = client.get('/auth/register')
+    response = client.get('/auth/register/plumber')
     assert response.status_code == 200

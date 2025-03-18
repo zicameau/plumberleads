@@ -7,13 +7,13 @@ def test_plumber_registration_and_sync(app, client):
     plumber_data = {
         'email': 'sync_test@example.com',
         'password': 'password123',
+        'confirm_password': 'password123',
         'company_name': 'Sync Test Plumbing',
         'contact_name': 'John Sync',
-        'phone': '555-999-8888',
-        'role': 'plumber'
+        'phone': '555-999-8888'
     }
     
-    response = client.post('/auth/register', data=plumber_data)
+    response = client.post('/auth/register/plumber', data=plumber_data)
     assert response.status_code == 200
     
     # Login as plumber
@@ -22,8 +22,7 @@ def test_plumber_registration_and_sync(app, client):
         'password': plumber_data['password']
     })
     assert response.status_code == 200
-    access_token = response.json.get('access_token')
-    assert access_token is not None
+    assert 'token' in session
     
     # Verify profile was created in Supabase
     supabase = get_supabase()
@@ -41,12 +40,11 @@ def test_plumber_login_and_profile_retrieval(app, client, test_plumber):
         'password': 'password123'
     })
     assert response.status_code == 200
-    access_token = response.json.get('access_token')
-    assert access_token is not None
+    assert 'token' in session
     
     # Get plumber profile
     response = client.get('/api/plumber/profile', headers={
-        'Authorization': f'Bearer {access_token}'
+        'Authorization': f'Bearer {session["token"]}'
     })
     assert response.status_code == 200
     profile = response.json
@@ -61,8 +59,7 @@ def test_plumber_profile_update(app, client, test_plumber):
         'password': 'password123'
     })
     assert response.status_code == 200
-    access_token = response.json.get('access_token')
-    assert access_token is not None
+    assert 'token' in session
     
     # Update profile
     update_data = {
@@ -73,7 +70,7 @@ def test_plumber_profile_update(app, client, test_plumber):
     
     response = client.post('/api/plumber/profile', 
                          data=update_data,
-                         headers={'Authorization': f'Bearer {access_token}'})
+                         headers={'Authorization': f'Bearer {session["token"]}'})
     assert response.status_code == 200
     
     # Verify update in Supabase
@@ -91,13 +88,13 @@ def test_plumber_data_persistence(app, client):
     plumber_data = {
         'email': 'persist_test@example.com',
         'password': 'password123',
+        'confirm_password': 'password123',
         'company_name': 'Persist Test Plumbing',
         'contact_name': 'John Persist',
-        'phone': '555-777-6666',
-        'role': 'plumber'
+        'phone': '555-777-6666'
     }
     
-    response = client.post('/auth/register', data=plumber_data)
+    response = client.post('/auth/register/plumber', data=plumber_data)
     assert response.status_code == 200
     
     # Log out
@@ -110,12 +107,11 @@ def test_plumber_data_persistence(app, client):
         'password': plumber_data['password']
     })
     assert response.status_code == 200
-    access_token = response.json.get('access_token')
-    assert access_token is not None
+    assert 'token' in session
     
     # Verify data is still there
     response = client.get('/api/plumber/profile', headers={
-        'Authorization': f'Bearer {access_token}'
+        'Authorization': f'Bearer {session["token"]}'
     })
     assert response.status_code == 200
     profile = response.json
