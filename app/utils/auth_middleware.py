@@ -26,7 +26,9 @@ def require_auth(f):
             
         except IndexError:
             raise AuthenticationError("Invalid authorization header format")
+        except AuthenticationError as e:
+            raise e
         except Exception as e:
-            raise AuthenticationError(str(e))
+            raise AuthenticationError("Invalid token")
             
     return decorated 

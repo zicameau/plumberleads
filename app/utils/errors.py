@@ -9,7 +9,7 @@ class APIError(Exception):
         self.payload = payload
 
     def to_dict(self):
-        rv = dict(self.payload or ())
+        rv = dict(self.payload or {})
         rv['error'] = {
             'code': self.__class__.__name__.upper(),
             'message': self.message

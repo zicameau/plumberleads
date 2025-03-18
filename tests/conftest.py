@@ -96,6 +96,7 @@ def mock_supabase(monkeypatch):
                 self.name = name
                 self.conditions = []
                 self._columns = "*"
+                self._limit = None
             
             def insert(self, data):
                 if self.name not in self.table_data:
@@ -114,10 +115,14 @@ def mock_supabase(monkeypatch):
             def single(self):
                 return self
             
+            def limit(self, count):
+                self._limit = count
+                return self
+            
             def execute(self):
                 class Response:
                     def __init__(self, data):
-                        self.data = data
+                        self.data = [data]
                 
                 return Response({
                     "id": "test_user_id",
