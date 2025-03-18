@@ -38,7 +38,4 @@ def init_supabase(url: str, key: str, testing: bool = False):
 
 def get_supabase() -> Client:
     """Get the Supabase client instance."""
-    return SupabaseClient.get_instance().get_client()
-
-# Create a global supabase instance
-supabase = get_supabase() 
+    return SupabaseClient.get_instance().get_client() 

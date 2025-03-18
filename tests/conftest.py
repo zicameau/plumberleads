@@ -9,17 +9,17 @@ from app.services.mock.supabase_mock import SupabaseMock
 # Load test environment variables
 load_dotenv('.env.test')
 
+# Initialize Supabase with test configuration before any tests run
+init_supabase(
+    url=os.getenv('TEST_SUPABASE_URL', 'https://your-test-project.supabase.co'),
+    key=os.getenv('TEST_SUPABASE_KEY', 'your-test-anon-key'),
+    testing=True
+)
+
 @pytest.fixture
 def app():
     """Create and configure a new app instance for each test."""
     app = create_app('testing')
-    
-    # Initialize Supabase with test credentials
-    init_supabase(
-        url=os.getenv('TEST_SUPABASE_URL', 'https://your-test-project.supabase.co'),
-        key=os.getenv('TEST_SUPABASE_KEY', 'your-test-anon-key'),
-        testing=True
-    )
     
     # Create all tables
     with app.app_context():
