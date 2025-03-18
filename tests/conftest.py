@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from app import create_app
 from app.services.supabase import init_supabase, get_supabase
+import requests
 
 # Load test environment variables
 load_dotenv('.env.test')
@@ -43,19 +44,21 @@ def supabase():
     return get_supabase()
 
 @pytest.fixture
-def test_user(supabase):
-    """Create a test user for testing."""
-    # Create user with admin API to ensure email is confirmed
-    headers = {
+def admin_headers():
+    """Get admin API headers for Supabase."""
+    return {
         'apikey': os.getenv('SUPABASE_SERVICE_KEY'),
         'Authorization': f'Bearer {os.getenv("SUPABASE_SERVICE_KEY")}',
         'Content-Type': 'application/json'
     }
-    
-    import requests
+
+@pytest.fixture
+def test_user(supabase, admin_headers):
+    """Create a test user for testing."""
+    # Create user with admin API to ensure email is confirmed
     response = requests.post(
         f"{os.getenv('SUPABASE_URL')}/auth/v1/admin/users",
-        headers=headers,
+        headers=admin_headers,
         json={
             'email': 'test@example.com',
             'password': 'password123',
@@ -71,25 +74,16 @@ def test_user(supabase):
     # Cleanup: Delete the test user
     requests.delete(
         f"{os.getenv('SUPABASE_URL')}/auth/v1/admin/users/{user_data['id']}",
-        headers=headers
+        headers=admin_headers
     )
 
 @pytest.fixture
-def test_plumber(supabase):
+def test_plumber(supabase, admin_headers):
     """Create a test plumber for testing."""
     # Create plumber user with admin API
-    headers = {
-        'apikey': os.getenv('SUPABASE_SERVICE_KEY'),
-        'Authorization': f'Bearer {os.getenv("SUPABASE_SERVICE_KEY")}',
-        'Content-Type': 'application/json'
-    }
-    
-    import requests
-    
-    # Create plumber user
     response = requests.post(
         f"{os.getenv('SUPABASE_URL')}/auth/v1/admin/users",
-        headers=headers,
+        headers=admin_headers,
         json={
             'email': 'plumber@example.com',
             'password': 'password123',
@@ -124,5 +118,5 @@ def test_plumber(supabase):
     # Then delete the user
     requests.delete(
         f"{os.getenv('SUPABASE_URL')}/auth/v1/admin/users/{user_data['id']}",
-        headers=headers
+        headers=admin_headers
     ) 
