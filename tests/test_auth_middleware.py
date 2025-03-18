@@ -11,16 +11,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 def test_token_required_decorator(app, client, test_user):
     """Test the token_required decorator."""
     # First login to get a token
-    response = client.post('/auth/login', json={
+    response = client.post('/auth/login', data={
         'email': test_user['email'],
         'password': 'password123'
     })
     assert response.status_code == 200
-    token = response.json['token']
+    access_token = response.json.get('access_token')
+    assert access_token is not None
     
     # Test accessing a protected route with valid token
     response = client.get('/api/profile', headers={
-        'Authorization': f'Bearer {token}'
+        'Authorization': f'Bearer {access_token}'
     })
     assert response.status_code == 200
     
@@ -37,22 +38,23 @@ def test_token_required_decorator(app, client, test_user):
 def test_role_required_decorator(app, client, test_plumber):
     """Test the role_required decorator."""
     # Login as plumber
-    response = client.post('/auth/login', json={
+    response = client.post('/auth/login', data={
         'email': test_plumber['user']['email'],
         'password': 'password123'
     })
     assert response.status_code == 200
-    token = response.json['token']
+    access_token = response.json.get('access_token')
+    assert access_token is not None
     
     # Test accessing plumber route with plumber role
     response = client.get('/api/plumber/profile', headers={
-        'Authorization': f'Bearer {token}'
+        'Authorization': f'Bearer {access_token}'
     })
     assert response.status_code == 200
     
     # Test accessing admin route with plumber role (should fail)
     response = client.get('/api/admin/dashboard', headers={
-        'Authorization': f'Bearer {token}'
+        'Authorization': f'Bearer {access_token}'
     })
     assert response.status_code == 403
 
@@ -67,5 +69,5 @@ def test_public_routes(app, client):
     assert response.status_code == 200
     
     # Test registration page
-    response = client.get('/auth/register/plumber')
+    response = client.get('/auth/register')
     assert response.status_code == 200
