@@ -1,6 +1,6 @@
 # app/routes/auth.py
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, g, session, current_app
-from app.services.auth_service import signup, login as auth_login, logout, reset_password_request
+from app.services.auth_service import signup, login, logout, reset_password_request
 from flask_mail import Message, Mail
 import os
 from app import mail
@@ -15,45 +15,35 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 def register_plumber():
     """Registration page for plumbers."""
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        company_name = request.form.get('company_name')
+        logger.info(f"Plumber registration form submitted for {request.form.get('email')}")
         
-        logger.info(f"Plumber registration form submitted for {email}")
-        
-        if not all([email, password, confirm_password, company_name]):
-            logger.warning(f"Incomplete plumber registration form for {email}")
-            flash('All fields are required', 'error')
+        # Validate form data
+        if request.form.get('password') != request.form.get('confirm_password'):
+            flash('Passwords do not match', 'error')
             return render_template('auth/register_plumber.html')
             
-        if password != confirm_password:
-            logger.warning(f"Password mismatch in plumber registration for {email}")
-            flash('Passwords do not match', 'error')
-            return render_template('auth/register_plumber.html', form_data=request.form)
-        
-        # Create user with plumber role
-        user_metadata = {
+        # Prepare user metadata
+        metadata = {
             'role': 'plumber',
-            'company_name': company_name
+            'company_name': request.form.get('company_name'),
+            'contact_name': request.form.get('contact_name'),
+            'phone': request.form.get('phone')
         }
         
-        logger.info(f"Attempting to create plumber account for {email}")
-        user = signup(email, password, user_metadata)
+        logger.info(f"Attempting to create plumber account for {request.form.get('email')}")
+        auth_response = signup(
+            request.form.get('email'),
+            request.form.get('password'),
+            metadata=metadata
+        )
         
-        if user:
-            # Store user info for redirection after email confirmation
-            session['registered_email'] = email
-            session['registered_role'] = 'plumber'
-            
-            logger.info(f"Plumber registration successful for {email}")
+        if auth_response and auth_response.user:
             flash('Registration successful! Please check your email to confirm your account.', 'success')
-            return redirect(url_for('auth.registration_success'))
-        else:
-            logger.warning(f"Plumber registration failed for {email}")
-            flash('Registration failed. This email may already be registered.', 'error')
-            return render_template('auth/register_plumber.html', form_data=request.form)
-    
+            return redirect(url_for('auth.login'))
+            
+        flash('Registration failed. Please try again.', 'error')
+        logger.warning(f"Plumber registration failed for {request.form.get('email')}")
+        
     # GET request - show registration form
     logger.info("Plumber registration form requested")
     return render_template('auth/register_plumber.html')
@@ -73,7 +63,7 @@ def registration_success():
                          role=registered_role)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
-def login():
+def login_route():
     """Login page."""
     # Check if already logged in
     if 'token' in session:
@@ -95,40 +85,18 @@ def login():
         password = request.form.get('password')
         
         logger.info(f"Login attempt for {email}")
+        auth_response = login(email, password)
         
-        if not email or not password:
-            logger.warning(f"Login attempt with missing credentials")
-            flash('Email and password are required', 'error')
-            return render_template('auth/login.html', email=email)
+        if auth_response and auth_response.user:
+            flash('Logged in successfully!', 'success')
+            next_url = request.args.get('next')
+            if next_url:
+                return redirect(next_url)
+            return redirect(url_for('main.index'))
+            
+        flash('Invalid email or password', 'error')
+        logger.warning(f"Login failed for {email}")
         
-        # Attempt login
-        logger.info(f"Attempting login for {email}")
-        result = auth_login(email, password)
-        
-        if result and result.get('session') and result.get('user'):
-            # Store token and basic user info in session
-            session['token'] = result['session'].access_token
-            session['user_id'] = result['user'].id
-            
-            # Store role for redirects
-            user_metadata = result['user'].user_metadata or {}
-            role = user_metadata.get('role')
-            session['role'] = role
-            
-            logger.info(f"Login successful for {email} with role {role}")
-            
-            # Redirect based on role
-            if role == 'plumber':
-                return redirect(url_for('plumber.dashboard'))
-            elif role == 'admin':
-                return redirect(url_for('admin.dashboard'))
-            else:
-                return redirect(url_for('customer.index'))
-        else:
-            logger.warning(f"Login failed for {email}")
-            flash('Invalid email or password', 'error')
-            return render_template('auth/login.html', email=email)
-    
     # GET request - show login form
     logger.info("Login form requested")
     return render_template('auth/login.html')
@@ -136,41 +104,28 @@ def login():
 @auth_bp.route('/logout', methods=['GET'])
 def logout_route():
     """Logout and redirect to home page."""
-    user_id = session.get('user_id')
-    logger.info(f"Logout requested for user {user_id}")
+    user_email = session.get('user', {}).get('email')
+    logger.info(f"Logout requested for user {user_email}")
     
-    if 'token' in session:
-        token = session['token']
-        logout(token)
+    logout()
+    flash('You have been logged out successfully', 'success')
+    logger.info(f"User {user_email} logged out successfully")
     
-    # Clear session
-    session.clear()
-    
-    logger.info(f"User {user_id} logged out successfully")
-    flash('You have been logged out successfully.', 'success')
-    return redirect(url_for('home.index'))
+    return redirect(url_for('main.index'))
 
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
     """Password reset request page."""
     if request.method == 'POST':
-        # Get form data
         email = request.form.get('email')
+        logger.info(f"Password reset requested for {email}")
         
-        if not email:
-            flash('Email is required', 'error')
-            return render_template('auth/reset_password.html')
-        
-        # Send password reset email
-        reset_sent = reset_password_request(email)
-        
-        if reset_sent:
-            flash('Password reset instructions have been sent to your email.', 'success')
+        if reset_password_request(email):
+            flash('Password reset instructions have been sent to your email', 'success')
             return redirect(url_for('auth.login'))
-        else:
-            flash('Failed to send password reset email. Please try again.', 'error')
-            return render_template('auth/reset_password.html', email=email)
-    
+            
+        flash('Error sending password reset email. Please try again.', 'error')
+        
     # GET request - show reset password form
     return render_template('auth/reset_password.html')
 
@@ -197,17 +152,17 @@ def api_login():
             }), 400
         
         # Attempt login
-        result = auth_login(data['email'], data['password'])
+        result = login(data['email'], data['password'])
         
-        if result and result.get('session') and result.get('user'):
+        if result and result.user:
             # Return token and basic user info
             return jsonify({
                 'success': True,
-                'token': result['session'].access_token,
+                'token': result.session.access_token,
                 'user': {
-                    'id': result['user'].id,
-                    'email': result['user'].email,
-                    'role': result['user'].user_metadata.get('role')
+                    'id': result.user.id,
+                    'email': result.user.email,
+                    'role': result.user.user_metadata.get('role')
                 }
             })
         else:
