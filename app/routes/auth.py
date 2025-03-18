@@ -8,46 +8,54 @@ auth_bp = Blueprint('auth', __name__)
 def register():
     """Register a new plumber"""
     if not request.is_json or not request.get_data():
-        raise ValidationError("No data provided")
+        return jsonify({"error": {"message": "No data provided"}}), 400
     
     try:
         data = request.get_json()
         if not data:
-            raise ValidationError("No data provided")
+            return jsonify({"error": {"message": "No data provided"}}), 400
         
         # Validate required fields
         required_fields = ['email', 'password', 'first_name', 'last_name', 'phone_number']
         for field in required_fields:
             if not data.get(field):
-                raise ValidationError(f"Missing required field: {field}")
+                return jsonify({"error": {"message": f"Missing required field: {field}"}}), 400
         
         result = AuthService.register_plumber(data)
         return jsonify(result["user"]), 201
-    except (ValidationError, AuthenticationError) as e:
-        raise e
+    except AuthenticationError as e:
+        # Explicitly handle the authentication error
+        error_message = str(e) or "Failed to create user"
+        return jsonify({"error": {"message": error_message}}), 401
+    except ValidationError as e:
+        return jsonify({"error": {"message": str(e)}}), 400
     except Exception as e:
-        raise ValidationError("Invalid request format")
+        return jsonify({"error": {"message": "Invalid request format"}}), 400
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
     """Login a plumber"""
     if not request.is_json or not request.get_data():
-        raise ValidationError("No data provided")
+        return jsonify({"error": {"message": "No data provided"}}), 400
     
     try:
         data = request.get_json()
         if not data:
-            raise ValidationError("No data provided")
+            return jsonify({"error": {"message": "No data provided"}}), 400
         
         if not data.get('email') or not data.get('password'):
-            raise ValidationError("Email and password are required")
+            return jsonify({"error": {"message": "Email and password are required"}}), 400
         
         result = AuthService.login(data['email'], data['password'])
         return jsonify(result)
-    except (ValidationError, AuthenticationError) as e:
-        raise e
+    except AuthenticationError as e:
+        # Explicitly handle the authentication error
+        error_message = str(e) or "Invalid credentials"
+        return jsonify({"error": {"message": error_message}}), 401
+    except ValidationError as e:
+        return jsonify({"error": {"message": str(e)}}), 400
     except Exception as e:
-        raise ValidationError("Invalid request format")
+        return jsonify({"error": {"message": "Invalid request format"}}), 400
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
@@ -55,7 +63,7 @@ def logout():
     auth_header = request.headers.get('Authorization')
     
     if not auth_header:
-        raise AuthenticationError("No authorization header")
+        return jsonify({"error": {"message": "No authorization header"}}), 401
     
     try:
         # Extract token from Bearer token
@@ -63,8 +71,10 @@ def logout():
         AuthService.logout(token)
         return jsonify({"message": "Successfully logged out"})
     except IndexError:
-        raise AuthenticationError("Invalid authorization header format")
+        return jsonify({"error": {"message": "Invalid authorization header format"}}), 401
     except AuthenticationError as e:
-        raise e
+        # Explicitly handle the authentication error
+        error_message = str(e) or "Auth service error"
+        return jsonify({"error": {"message": error_message}}), 401
     except Exception as e:
-        raise AuthenticationError(e.args[0] if e.args else "Auth service error") 
+        return jsonify({"error": {"message": str(e) if hasattr(e, 'args') and e.args else "Auth service error"}}), 401 

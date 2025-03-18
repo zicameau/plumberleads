@@ -83,12 +83,8 @@ def test_register_invalid_json(client):
 
 def test_register_auth_failure(client, mock_supabase, monkeypatch):
     """Test registration when auth fails"""
-    def mock_sign_up(*args, **kwargs):
-        class Response:
-            user = None
-        return Response()
-    
-    monkeypatch.setattr(mock_supabase.auth, "sign_up", mock_sign_up)
+    # Set the flag to trigger failure simulation
+    mock_supabase.auth._fail_sign_up = True
     
     data = {
         "email": "test@example.com",
@@ -106,6 +102,9 @@ def test_register_auth_failure(client, mock_supabase, monkeypatch):
     result = json.loads(response.data)
     assert "error" in result
     assert "Failed to create user" in result["error"]["message"]
+    
+    # Clean up flag
+    mock_supabase.auth._fail_sign_up = False
 
 def test_login_success(client, mock_supabase):
     """Test successful login"""
@@ -160,13 +159,8 @@ def test_login_invalid_json(client):
 
 def test_login_auth_failure(client, mock_supabase, monkeypatch):
     """Test login when auth fails"""
-    def mock_sign_in(*args, **kwargs):
-        class Response:
-            user = None
-            session = None
-        return Response()
-    
-    monkeypatch.setattr(mock_supabase.auth, "sign_in_with_password", mock_sign_in)
+    # Set the flag to trigger failure simulation
+    mock_supabase.auth._fail_sign_in = True
     
     data = {
         "email": "test@example.com",
@@ -181,6 +175,9 @@ def test_login_auth_failure(client, mock_supabase, monkeypatch):
     result = json.loads(response.data)
     assert "error" in result
     assert "Invalid credentials" in result["error"]["message"]
+    
+    # Clean up flag
+    mock_supabase.auth._fail_sign_in = False
 
 def test_logout_success(client, mock_supabase, auth_headers):
     """Test successful logout"""
@@ -217,10 +214,8 @@ def test_logout_invalid_token_format(client):
 
 def test_logout_auth_failure(client, mock_supabase, auth_headers, monkeypatch):
     """Test logout when auth fails"""
-    def mock_sign_out(*args, **kwargs):
-        raise Exception("Auth service error")
-    
-    monkeypatch.setattr(mock_supabase.auth, "sign_out", mock_sign_out)
+    # Set the flag to trigger failure simulation
+    mock_supabase.auth._fail_sign_out = True
     
     response = client.post('/auth/logout',
                           headers=auth_headers)
@@ -229,6 +224,9 @@ def test_logout_auth_failure(client, mock_supabase, auth_headers, monkeypatch):
     result = json.loads(response.data)
     assert "error" in result
     assert "Auth service error" in result["error"]["message"]
+    
+    # Clean up flag
+    mock_supabase.auth._fail_sign_out = False
 
 def test_verify_token_success(client, mock_supabase):
     """Test successful token verification"""
