@@ -1,5 +1,5 @@
 from app.models.base import BaseModel
-from app.services.supabase import supabase
+from app.services.supabase import get_supabase
 from datetime import datetime
 import uuid
 import logging
@@ -69,7 +69,7 @@ class Plumber(BaseModel):
                 'updated_at': datetime.utcnow().isoformat()
             }
             
-            result = supabase.table('plumbers').insert(data).execute()
+            result = get_supabase().table('plumbers').insert(data).execute()
             if result.data:
                 return cls(**result.data[0])
             return None
@@ -81,7 +81,7 @@ class Plumber(BaseModel):
     def get_by_id(cls, plumber_id):
         """Get a plumber by ID from Supabase."""
         try:
-            result = supabase.table('plumbers').select('*').eq('id', plumber_id).execute()
+            result = get_supabase().table('plumbers').select('*').eq('id', plumber_id).execute()
             if result.data:
                 return cls(**result.data[0])
             return None
@@ -93,7 +93,7 @@ class Plumber(BaseModel):
     def get_by_user_id(cls, user_id):
         """Get a plumber by user ID from Supabase."""
         try:
-            result = supabase.table('plumbers').select('*').eq('user_id', user_id).execute()
+            result = get_supabase().table('plumbers').select('*').eq('user_id', user_id).execute()
             if result.data:
                 return cls(**result.data[0])
             return None
@@ -126,7 +126,7 @@ class Plumber(BaseModel):
                 'updated_at': datetime.utcnow().isoformat()
             }
             
-            result = supabase.table('plumbers').update(data).eq('id', self.id).execute()
+            result = get_supabase().table('plumbers').update(data).eq('id', self.id).execute()
             if result.data:
                 return True
             return False

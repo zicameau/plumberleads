@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from app import create_app, db
 from app.models.base import User, UserRole
-from app.services.supabase import init_supabase
+from app.services.supabase import init_supabase, get_supabase
 from app.services.mock.supabase_mock import SupabaseMock
 
 # Load test environment variables
@@ -45,10 +45,12 @@ def mock_supabase():
 @pytest.fixture(autouse=True)
 def use_mock_supabase(mock_supabase):
     """Automatically use the mock Supabase client for all tests."""
-    # Reset the singleton instance
-    SupabaseClient._instance = None
-    # Set the mock client
-    SupabaseClient.get_instance().set_client(mock_supabase)
+    # Initialize Supabase with the mock client
+    init_supabase(
+        url='https://test.supabase.co',
+        key='test-key',
+        testing=True
+    )
 
 @pytest.fixture
 def test_user(app):

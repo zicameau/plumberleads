@@ -5,42 +5,14 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import current_app, request, g, jsonify, session, flash, redirect, url_for
 from app.models.base import db, User, Plumber, UserRole
-from supabase import create_client, Client
+from app.services.supabase import init_supabase, get_supabase
 from .mock.supabase_mock import SupabaseMock
 import uuid
 import requests
 from app.models.plumber import Plumber
-from app.services.supabase import supabase
 
 # Get the auth logger
 logger = logging.getLogger('auth')
-
-# Global variable to store Supabase client
-_supabase_client = None
-
-def init_supabase(url, key, testing=False):
-    """Initialize the Supabase client."""
-    global _supabase_client
-    
-    # Use mock client for testing
-    if testing:
-        logger.info("Using mock Supabase client for testing")
-        _supabase_client = SupabaseMock()
-        return _supabase_client
-        
-    try:
-        _supabase_client = create_client(url, key)
-        logger.info("Supabase client initialized successfully")
-        return _supabase_client
-    except Exception as e:
-        logger.error(f"Failed to initialize Supabase client: {str(e)}", exc_info=True)
-        raise
-
-def get_supabase():
-    """Get the Supabase client instance."""
-    if not _supabase_client:
-        raise RuntimeError("Supabase client not initialized")
-    return _supabase_client
 
 def init_admin_user():
     """Initialize admin user in Supabase and local database if it doesn't exist."""
@@ -184,7 +156,7 @@ def signup(email, password, user_metadata=None):
     """Register a new user with Supabase Auth and sync to local database."""
     try:
         # Register with Supabase Auth
-        auth_response = supabase.auth.sign_up({
+        auth_response = get_supabase().auth.sign_up({
             'email': email,
             'password': password,
             'options': {
@@ -218,7 +190,7 @@ def login(email, password):
     """Login user with Supabase Auth and sync to local database."""
     try:
         # Login with Supabase Auth
-        auth_response = supabase.auth.sign_in_with_password({
+        auth_response = get_supabase().auth.sign_in_with_password({
             'email': email,
             'password': password
         })
