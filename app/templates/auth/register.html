@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - PlumberLeads</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="{{ url_for('index') }}">PlumberLeads</a></h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('auth.login') }}">Login</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+    
+    <main>
+        <div class="container">
+            <h2>Create a New Account</h2>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="{{ url_for('auth.register') }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="form-group">
+                    {{ form.email.label }}
+                    {{ form.email(class="form-control", required=true) }}
+                    {% if form.email.errors %}
+                        {% for error in form.email.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.password.label }}
+                    {{ form.password(class="form-control", required=true) }}
+                    {% if form.password.errors %}
+                        {% for error in form.password.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.password2.label }}
+                    {{ form.password2(class="form-control", required=true) }}
+                    {% if form.password2.errors %}
+                        {% for error in form.password2.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.full_name.label }}
+                    {{ form.full_name(class="form-control", required=true) }}
+                    {% if form.full_name.errors %}
+                        {% for error in form.full_name.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.company_name.label }}
+                    {{ form.company_name(class="form-control", required=true) }}
+                    {% if form.company_name.errors %}
+                        {% for error in form.company_name.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.phone.label }}
+                    {{ form.phone(class="form-control", required=true) }}
+                    {% if form.phone.errors %}
+                        {% for error in form.phone.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <label>Service Areas</label>
+                    {{ form.service_areas(class="form-control", multiple=true, required=true) }}
+                    {% if form.service_areas.errors %}
+                        {% for error in form.service_areas.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    <small>Hold Ctrl (or Cmd on Mac) to select multiple areas</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Service Types</label>
+                    {{ form.service_types(class="form-control", multiple=true, required=true) }}
+                    {% if form.service_types.errors %}
+                        {% for error in form.service_types.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    <small>Hold Ctrl (or Cmd on Mac) to select multiple types</small>
+                </div>
+                
+                <div class="form-group">
+                    {{ form.agree_terms() }} {{ form.agree_terms.label }}
+                    {% if form.agree_terms.errors %}
+                        {% for error in form.agree_terms.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.submit(class="btn primary") }}
+                </div>
+                
+                <p>
+                    Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a>
+                </p>
+            </form>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2023 PlumberLeads. All rights reserved.</p>
+        </div>
+    </footer>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 

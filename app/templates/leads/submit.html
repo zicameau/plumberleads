@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit a Lead - PlumberLeads</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="{{ url_for('index') }}">PlumberLeads</a></h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                    {% if current_user.is_authenticated %}
+                        <li><a href="#">Available Leads</a></li>
+                        <li><a href="#">My Claimed Leads</a></li>
+                        <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('auth.login') }}">Login</a></li>
+                        <li><a href="{{ url_for('auth.register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+    
+    <main>
+        <div class="container">
+            <h2>Submit a Plumbing Request</h2>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <p class="form-intro">
+                Fill out the form below to submit your plumbing request. One of our qualified plumbers will contact you soon.
+            </p>
+            
+            <form method="POST" action="{{ url_for('api.submit_lead') }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="form-section">
+                    <h3>Problem Details</h3>
+                    
+                    <div class="form-group">
+                        {{ form.title.label }}
+                        {{ form.title(class="form-control", placeholder="e.g. Leaking Bathroom Faucet", required=true) }}
+                        {% if form.title.errors %}
+                            {% for error in form.title.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.service_type.label }}
+                        {{ form.service_type(class="form-control", required=true) }}
+                        {% if form.service_type.errors %}
+                            {% for error in form.service_type.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.description.label }}
+                        {{ form.description(class="form-control", rows=5, placeholder="Please describe the issue in detail. Include when it started and any relevant information.", required=true) }}
+                        {% if form.description.errors %}
+                            {% for error in form.description.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.service_details.label }}
+                        {{ form.service_details(class="form-control", rows=3, placeholder="Any additional details about the service needed") }}
+                        {% if form.service_details.errors %}
+                            {% for error in form.service_details.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.urgency.label }}
+                        {{ form.urgency(class="form-control", required=true) }}
+                        {% if form.urgency.errors %}
+                            {% for error in form.urgency.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>Contact Information</h3>
+                    
+                    <div class="form-group">
+                        {{ form.customer_name.label }}
+                        {{ form.customer_name(class="form-control", placeholder="Your full name", required=true) }}
+                        {% if form.customer_name.errors %}
+                            {% for error in form.customer_name.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.customer_email.label }}
+                        {{ form.customer_email(class="form-control", placeholder="Your email address", required=true) }}
+                        {% if form.customer_email.errors %}
+                            {% for error in form.customer_email.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.customer_phone.label }}
+                        {{ form.customer_phone(class="form-control", placeholder="Your phone number", required=true) }}
+                        {% if form.customer_phone.errors %}
+                            {% for error in form.customer_phone.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>Location</h3>
+                    
+                    <div class="form-group">
+                        {{ form.address.label }}
+                        {{ form.address(class="form-control", placeholder="Street address", required=true) }}
+                        {% if form.address.errors %}
+                            {% for error in form.address.errors %}
+                                <div class="error-message">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group form-group-city">
+                            {{ form.city.label }}
+                            {{ form.city(class="form-control", placeholder="City", required=true) }}
+                            {% if form.city.errors %}
+                                {% for error in form.city.errors %}
+                                    <div class="error-message">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group form-group-state">
+                            {{ form.state.label }}
+                            {{ form.state(class="form-control", placeholder="State", required=true) }}
+                            {% if form.state.errors %}
+                                {% for error in form.state.errors %}
+                                    <div class="error-message">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group form-group-zip">
+                            {{ form.zip_code.label }}
+                            {{ form.zip_code(class="form-control", placeholder="ZIP Code", required=true) }}
+                            {% if form.zip_code.errors %}
+                                {% for error in form.zip_code.errors %}
+                                    <div class="error-message">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <div class="form-group terms-group">
+                        <label>
+                            <input type="checkbox" name="terms_agreement" required>
+                            I agree to the <a href="#" target="_blank">Terms of Service</a> and <a href="#" target="_blank">Privacy Policy</a>
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.submit(class="btn primary") }}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2023 PlumberLeads. All rights reserved.</p>
+        </div>
+    </footer>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 

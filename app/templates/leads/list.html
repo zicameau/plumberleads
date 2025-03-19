@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Leads - PlumberLeads</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="{{ url_for('index') }}">PlumberLeads</a></h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                    {% if current_user.is_authenticated %}
+                        <li><a href="#" class="active">Available Leads</a></li>
+                        <li><a href="#">My Claimed Leads</a></li>
+                        <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('auth.login') }}">Login</a></li>
+                        <li><a href="{{ url_for('auth.register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+    
+    <main>
+        <div class="container">
+            <h2>Available Leads</h2>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <div class="filter-container">
+                <form method="GET" class="filter-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="service_type">Service Type</label>
+                            <select name="service_type" id="service_type">
+                                <option value="">All Types</option>
+                                <option value="Residential Plumbing">Residential Plumbing</option>
+                                <option value="Commercial Plumbing">Commercial Plumbing</option>
+                                <option value="Emergency Repairs">Emergency Repairs</option>
+                                <option value="Water Heater Installation">Water Heater Installation</option>
+                                <option value="Pipe Repair">Pipe Repair</option>
+                                <option value="Drain Cleaning">Drain Cleaning</option>
+                                <option value="Sewer Line Repair">Sewer Line Repair</option>
+                                <option value="Fixture Installation">Fixture Installation</option>
+                                <option value="Gas Line Services">Gas Line Services</option>
+                                <option value="Water Treatment">Water Treatment</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="zip_code">Zip Code</label>
+                            <input type="text" name="zip_code" id="zip_code" placeholder="Enter zip code">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sort">Sort By</label>
+                            <select name="sort" id="sort">
+                                <option value="newest">Newest First</option>
+                                <option value="price_high">Price: High to Low</option>
+                                <option value="price_low">Price: Low to High</option>
+                                <option value="urgency">Urgency</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn primary">Apply Filters</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="leads-container">
+                {% if leads %}
+                    {% for lead in leads %}
+                        <div class="lead-card">
+                            <div class="lead-header">
+                                <h3>{{ lead.title }}</h3>
+                                <span class="lead-price">${{ lead.price }}</span>
+                            </div>
+                            
+                            <div class="lead-details">
+                                <p><strong>Service Type:</strong> {{ lead.service_type }}</p>
+                                <p><strong>Location:</strong> {{ lead.city }}, {{ lead.state }}</p>
+                                <p><strong>Posted:</strong> {{ lead.created_at.strftime('%B %d, %Y') }}</p>
+                                <p><strong>Urgency:</strong> 
+                                    {% if lead.urgency == 'high' %}
+                                        <span class="urgency high">High</span>
+                                    {% elif lead.urgency == 'medium' %}
+                                        <span class="urgency medium">Medium</span>
+                                    {% else %}
+                                        <span class="urgency low">Low</span>
+                                    {% endif %}
+                                </p>
+                                
+                                <div class="lead-description">
+                                    <p>{{ lead.description[:150] }}{% if lead.description|length > 150 %}...{% endif %}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="lead-actions">
+                                <a href="#" class="btn primary view-details" data-lead-id="{{ lead.id }}">View Details</a>
+                                <button class="btn secondary claim-lead" data-lead-id="{{ lead.id }}" data-lead-price="{{ lead.price }}">Claim Lead</button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    
+                    <div class="pagination">
+                        {% if pagination.has_prev %}
+                            <a href="{{ url_for('api.get_leads', page=pagination.prev_num, **request.args) }}" class="btn secondary">&laquo; Previous</a>
+                        {% else %}
+                            <span class="btn secondary disabled">&laquo; Previous</span>
+                        {% endif %}
+                        
+                        <span class="pagination-info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+                        
+                        {% if pagination.has_next %}
+                            <a href="{{ url_for('api.get_leads', page=pagination.next_num, **request.args) }}" class="btn secondary">Next &raquo;</a>
+                        {% else %}
+                            <span class="btn secondary disabled">Next &raquo;</span>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="no-leads">
+                        <p>No leads match your criteria. Try adjusting your filters or check back later for new leads.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+    
+    <!-- Lead Detail Modal -->
+    <div id="lead-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="lead-modal-content">
+                <!-- Modal content will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Payment Confirmation Modal -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Confirm Lead Purchase</h3>
+            <p>You are about to purchase this lead for $<span id="lead-price"></span>.</p>
+            <p>Once purchased, you will have immediate access to the customer's contact information.</p>
+            
+            <div id="stripe-payment-element">
+                <!-- Stripe payment element will be loaded here -->
+            </div>
+            
+            <div class="modal-actions">
+                <button id="complete-payment" class="btn primary">Purchase Lead</button>
+                <button id="cancel-payment" class="btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2023 PlumberLeads. All rights reserved.</p>
+        </div>
+    </footer>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Lead detail modal
+            const leadModal = document.getElementById('lead-modal');
+            const leadModalContent = document.getElementById('lead-modal-content');
+            const viewDetailButtons = document.querySelectorAll('.view-details');
+            const closeButtons = document.querySelectorAll('.close');
+            
+            // Payment modal
+            const paymentModal = document.getElementById('payment-modal');
+            const leadPriceSpan = document.getElementById('lead-price');
+            const claimButtons = document.querySelectorAll('.claim-lead');
+            const completePaymentButton = document.getElementById('complete-payment');
+            const cancelPaymentButton = document.getElementById('cancel-payment');
+            
+            let currentLeadId = null;
+            
+            // View details button click
+            viewDetailButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const leadId = this.getAttribute('data-lead-id');
+                    
+                    // Fetch lead details
+                    fetch(`/api/leads/${leadId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            // Populate modal content
+                            leadModalContent.innerHTML = `
+                                <h3>${data.title}</h3>
+                                <div class="lead-detail-content">
+                                    <p><strong>Service Type:</strong> ${data.service_type}</p>
+                                    <p><strong>Location:</strong> ${data.city}, ${data.state} ${data.zip_code}</p>
+                                    <p><strong>Posted:</strong> ${new Date(data.created_at).toLocaleDateString()}</p>
+                                    <p><strong>Urgency:</strong> ${data.urgency.charAt(0).toUpperCase() + data.urgency.slice(1)}</p>
+                                    <p><strong>Price:</strong> $${data.price}</p>
+                                    <div class="lead-description">
+                                        <h4>Description:</h4>
+                                        <p>${data.description}</p>
+                                    </div>
+                                    <div class="lead-service-details">
+                                        <h4>Service Details:</h4>
+                                        <p>${data.service_details}</p>
+                                    </div>
+                                </div>
+                                <div class="modal-actions">
+                                    <button id="modal-claim-lead" class="btn primary" data-lead-id="${data.id}" data-lead-price="${data.price}">Claim This Lead</button>
+                                </div>
+                            `;
+                            
+                            // Show the modal
+                            leadModal.style.display = 'block';
+                            
+                            // Add event listener to the claim button
+                            const modalClaimButton = document.getElementById('modal-claim-lead');
+                            modalClaimButton.addEventListener('click', function() {
+                                const leadId = this.getAttribute('data-lead-id');
+                                const leadPrice = this.getAttribute('data-lead-price');
+                                showPaymentModal(leadId, leadPrice);
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Error fetching lead details:', error);
+                        });
+                });
+            });
+            
+            // Claim lead button click
+            claimButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const leadId = this.getAttribute('data-lead-id');
+                    const leadPrice = this.getAttribute('data-lead-price');
+                    showPaymentModal(leadId, leadPrice);
+                });
+            });
+            
+            // Show payment modal
+            function showPaymentModal(leadId, price) {
+                currentLeadId = leadId;
+                leadPriceSpan.textContent = price;
+                leadModal.style.display = 'none';
+                paymentModal.style.display = 'block';
+                
+                // Initialize Stripe payment element
+                // This is simplified - in a real app, you'd need to initialize Stripe properly
+                // and create a Payment Intent on your server
+            }
+            
+            // Complete payment button click
+            completePaymentButton.addEventListener('click', function() {
+                // In a real app, handle the Stripe payment confirmation here
+                // For this demo, we'll just simulate a successful payment
+                
+                fetch(`/api/leads/${currentLeadId}/claim`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    paymentModal.style.display = 'none';
+                    if (data.success) {
+                        alert('Lead claimed successfully! You can now contact the customer.');
+                        // Refresh the page or update UI as needed
+                        window.location.reload();
+                    } else {
+                        alert('Failed to claim lead: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error claiming lead:', error);
+                    alert('An error occurred while trying to claim the lead. Please try again.');
+                });
+            });
+            
+            // Cancel payment button click
+            cancelPaymentButton.addEventListener('click', function() {
+                paymentModal.style.display = 'none';
+            });
+            
+            // Close modal when clicking the "x" or outside the modal
+            closeButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    leadModal.style.display = 'none';
+                    paymentModal.style.display = 'none';
+                });
+            });
+            
+            window.addEventListener('click', function(event) {
+                if (event.target == leadModal) {
+                    leadModal.style.display = 'none';
+                }
+                if (event.target == paymentModal) {
+                    paymentModal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

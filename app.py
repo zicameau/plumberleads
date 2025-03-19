@@ -1,19 +1,10 @@
-from flask import Flask
-from flask_cors import CORS
-from app.api import api_bp
-from app.auth import auth_bp
+import os
+from app import create_app
+from config import config
 
-def create_app():
-    app = Flask(__name__)
-    CORS(app)
-
-    # Register blueprints
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-
-    return app
-
-app = create_app()
+# Create application instance using the appropriate config
+app = create_app(config[os.environ.get('FLASK_ENV', 'default')])
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    # Run the application
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=app.config['DEBUG']) 
