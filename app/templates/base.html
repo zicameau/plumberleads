@@ -25,11 +25,6 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('leads.available') }}">Available Leads</a>
                     </li>
-                    {% if session.get('user') %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('leads.submit') }}">Submit Lead</a>
-                    </li>
-                    {% endif %}
                 </ul>
                 <ul class="navbar-nav">
                     {% if session.get('user') %}
