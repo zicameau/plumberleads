@@ -1,83 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - PlumberLeads</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-</head>
-<body>
-    <header>
-        <div class="container">
-            <h1><a href="{{ url_for('index') }}">PlumberLeads</a></h1>
-            <nav>
-                <ul>
-                    <li><a href="{{ url_for('auth.register') }}">Register</a></li>
-                </ul>
-            </nav>
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-center">Login</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('auth.login') }}" class="needs-validation" novalidate>
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.email.label(class="form-label") }}
+                            {{ form.email(class="form-control") }}
+                            {% for error in form.email.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control") }}
+                            {% for error in form.password.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            {{ form.remember_me(class="form-check-input") }}
+                            {{ form.remember_me.label(class="form-check-label") }}
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-3">
+                        <p><a href="{{ url_for('auth.reset_password_request') }}">Forgot your password?</a></p>
+                        <p>Don't have an account? <a href="{{ url_for('auth.register') }}">Register here</a></p>
+                    </div>
+                </div>
+            </div>
         </div>
-    </header>
-    
-    <main>
-        <div class="container">
-            <h2>Login to Your Account</h2>
-            
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="flash-message {{ category }}">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-            
-            <form method="POST" action="{{ url_for('auth.login') }}">
-                {{ form.hidden_tag() }}
-                
-                <div class="form-group">
-                    {{ form.email.label }}
-                    {{ form.email(class="form-control", required=true) }}
-                    {% if form.email.errors %}
-                        {% for error in form.email.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.password.label }}
-                    {{ form.password(class="form-control", required=true) }}
-                    {% if form.password.errors %}
-                        {% for error in form.password.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.remember_me() }} {{ form.remember_me.label }}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.submit(class="btn primary") }}
-                </div>
-                
-                <p>
-                    Don't have an account? <a href="{{ url_for('auth.register') }}">Register here</a>
-                </p>
-                
-                <p>
-                    <a href="{{ url_for('auth.reset_password_request') }}">Forgot your password?</a>
-                </p>
-            </form>
-        </div>
-    </main>
-    
-    <footer>
-        <div class="container">
-            <p>&copy; 2023 PlumberLeads. All rights reserved.</p>
-        </div>
-    </footer>
-    
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html> 
+    </div>
+</div>
+{% endblock %} 

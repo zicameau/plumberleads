@@ -1,146 +1,272 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - PlumberLeads</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-</head>
-<body>
-    <header>
-        <div class="container">
-            <h1><a href="{{ url_for('index') }}">PlumberLeads</a></h1>
-            <nav>
-                <ul>
-                    <li><a href="{{ url_for('auth.login') }}">Login</a></li>
-                </ul>
-            </nav>
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pac-container {
+        z-index: 1051 !important;
+    }
+    #map {
+        height: 200px;
+        margin-bottom: 1rem;
+    }
+</style>
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-center">Register as a Plumber</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('auth.register') }}" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.full_name.label(class="form-label") }}
+                            {{ form.full_name(class="form-control") }}
+                            {% for error in form.full_name.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.email.label(class="form-label") }}
+                            {{ form.email(class="form-control") }}
+                            {% for error in form.email.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control") }}
+                            {% for error in form.password.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.confirm_password.label(class="form-label") }}
+                            {{ form.confirm_password(class="form-control") }}
+                            {% for error in form.confirm_password.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.company_name.label(class="form-label") }}
+                            {{ form.company_name(class="form-control") }}
+                            {% for error in form.company_name.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.phone.label(class="form-label") }}
+                            {{ form.phone(class="form-control") }}
+                            {% for error in form.phone.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.business_description.label(class="form-label") }}
+                            {{ form.business_description(class="form-control", rows="3") }}
+                            {% for error in form.business_description.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.license_number.label(class="form-label") }}
+                            {{ form.license_number(class="form-control") }}
+                            {% for error in form.license_number.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            {{ form.has_insurance(class="form-check-input") }}
+                            {{ form.has_insurance.label(class="form-check-label") }}
+                            {% for error in form.has_insurance.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Address Fields -->
+                        <div class="mb-3">
+                            {{ form.address.label(class="form-label") }}
+                            {{ form.address(class="form-control", placeholder="Start typing your address...") }}
+                            {% for error in form.address.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div id="map"></div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.city.label(class="form-label") }}
+                                    {{ form.city(class="form-control") }}
+                                    {% for error in form.city.errors %}
+                                        <div class="text-danger">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.state.label(class="form-label") }}
+                                    {{ form.state(class="form-control") }}
+                                    {% for error in form.state.errors %}
+                                        <div class="text-danger">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.zip_code.label(class="form-label") }}
+                                    {{ form.zip_code(class="form-control") }}
+                                    {% for error in form.zip_code.errors %}
+                                        <div class="text-danger">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.service_radius.label(class="form-label") }}
+                            {{ form.service_radius(class="form-control", type="number", min="1", max="100", value="25") }}
+                            {% for error in form.service_radius.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.service_areas.label(class="form-label") }}
+                            {{ form.service_areas(class="form-control", size="5") }}
+                            {% for error in form.service_areas.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                            <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple areas</small>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.service_types.label(class="form-label") }}
+                            {{ form.service_types(class="form-control", size="5") }}
+                            {% for error in form.service_types.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                            <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple services</small>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.profile_image.label(class="form-label") }}
+                            {{ form.profile_image(class="form-control", type="file", accept="image/*") }}
+                            {% for error in form.profile_image.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                            <small class="form-text text-muted">Supported formats: JPG, PNG, GIF. Max size: 16MB</small>
+                        </div>
+
+                        {{ form.latitude() }}
+                        {{ form.longitude() }}
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Register</button>
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-3">
+                        <p>Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
+                    </div>
+                </div>
+            </div>
         </div>
-    </header>
-    
-    <main>
-        <div class="container">
-            <h2>Create a New Account</h2>
-            
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="flash-message {{ category }}">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-            
-            <form method="POST" action="{{ url_for('auth.register') }}">
-                {{ form.hidden_tag() }}
-                
-                <div class="form-group">
-                    {{ form.email.label }}
-                    {{ form.email(class="form-control", required=true) }}
-                    {% if form.email.errors %}
-                        {% for error in form.email.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.password.label }}
-                    {{ form.password(class="form-control", required=true) }}
-                    {% if form.password.errors %}
-                        {% for error in form.password.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.password2.label }}
-                    {{ form.password2(class="form-control", required=true) }}
-                    {% if form.password2.errors %}
-                        {% for error in form.password2.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.full_name.label }}
-                    {{ form.full_name(class="form-control", required=true) }}
-                    {% if form.full_name.errors %}
-                        {% for error in form.full_name.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.company_name.label }}
-                    {{ form.company_name(class="form-control", required=true) }}
-                    {% if form.company_name.errors %}
-                        {% for error in form.company_name.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.phone.label }}
-                    {{ form.phone(class="form-control", required=true) }}
-                    {% if form.phone.errors %}
-                        {% for error in form.phone.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    <label>Service Areas</label>
-                    {{ form.service_areas(class="form-control", multiple=true, required=true) }}
-                    {% if form.service_areas.errors %}
-                        {% for error in form.service_areas.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                    <small>Hold Ctrl (or Cmd on Mac) to select multiple areas</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Service Types</label>
-                    {{ form.service_types(class="form-control", multiple=true, required=true) }}
-                    {% if form.service_types.errors %}
-                        {% for error in form.service_types.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                    <small>Hold Ctrl (or Cmd on Mac) to select multiple types</small>
-                </div>
-                
-                <div class="form-group">
-                    {{ form.agree_terms() }} {{ form.agree_terms.label }}
-                    {% if form.agree_terms.errors %}
-                        {% for error in form.agree_terms.errors %}
-                            <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    {{ form.submit(class="btn primary") }}
-                </div>
-                
-                <p>
-                    Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a>
-                </p>
-            </form>
-        </div>
-    </main>
-    
-    <footer>
-        <div class="container">
-            <p>&copy; 2023 PlumberLeads. All rights reserved.</p>
-        </div>
-    </footer>
-    
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html> 
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- OpenStreetMap Nominatim API -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize map
+    const map = L.map('map').setView([37.7749, -122.4194], 13); // Default to San Francisco
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Initialize Nominatim geocoder
+    const nominatim = new L.Control.Geocoder.Nominatim({
+        placeholder: 'Search for an address...',
+        geocoder: L.Control.Geocoder.nominatim({
+            geocodingQueryParams: {
+                countrycodes: 'us',
+                limit: 5
+            }
+        })
+    });
+
+    // Add geocoder to map
+    nominatim.addTo(map);
+
+    // Handle geocoding results
+    nominatim.on('markgeocode', function(e) {
+        const result = e.geocode;
+        
+        // Update form fields
+        document.getElementById('address').value = result.name;
+        document.getElementById('latitude').value = result.center.lat;
+        document.getElementById('longitude').value = result.center.lng;
+        
+        // Update map
+        map.setView(result.center, 15);
+        
+        // Extract address components
+        const address = result.properties.address;
+        if (address) {
+            if (address.city) document.getElementById('city').value = address.city;
+            if (address.state) document.getElementById('state').value = address.state;
+            if (address.postcode) document.getElementById('zip_code').value = address.postcode;
+        }
+    });
+
+    // Add click handler to map
+    map.on('click', function(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        
+        // Update coordinates
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lng;
+        
+        // Reverse geocode to get address
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.display_name) {
+                    document.getElementById('address').value = data.display_name;
+                    
+                    // Update address components
+                    if (data.address) {
+                        if (data.address.city) document.getElementById('city').value = data.address.city;
+                        if (data.address.state) document.getElementById('state').value = data.address.state;
+                        if (data.address.postcode) document.getElementById('zip_code').value = data.address.postcode;
+                    }
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    });
+});
+</script>
+{% endblock %} 

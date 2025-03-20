@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Nearby Leads{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h1 class="mb-4">Nearby Leads</h1>
+        </div>
+    </div>
+
+    <!-- Leads Table -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if leads %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Location</th>
+                                        <th>Service Type</th>
+                                        <th>Urgency</th>
+                                        <th>Price</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for lead in leads %}
+                                    <tr>
+                                        <td>{{ lead.title }}</td>
+                                        <td>{{ lead.city }}, {{ lead.state }}</td>
+                                        <td>{{ lead.service_type }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'danger' if lead.urgency == 'high' else 'warning' if lead.urgency == 'medium' else 'info' }}">
+                                                {{ lead.urgency }}
+                                            </span>
+                                        </td>
+                                        <td>${{ "%.2f"|format(lead.price) }}</td>
+                                        <td>
+                                            <a href="{{ url_for('leads.view', lead_id=lead.id) }}" class="btn btn-sm btn-primary">View</a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No nearby leads available at the moment.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

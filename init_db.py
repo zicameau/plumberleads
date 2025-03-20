@@ -29,12 +29,23 @@ def create_sample_users():
         is_verified=True,
         service_areas=json.dumps([]),
         service_types=json.dumps([]),
+        # Add address fields for admin
+        address='123 Admin St',
+        city='San Francisco',
+        state='CA',
+        zip_code='94105',
+        latitude=37.7749,
+        longitude=-122.4194,
+        service_radius=25,
+        # Add required fields
+        business_description='Administrative account for PlumberLeads platform',
+        license_number='ADMIN-001',
         created_at=datetime.utcnow() - timedelta(days=30)
     )
     admin.password_hash = generate_password_hash('adminpassword')
     db.session.add(admin)
     
-    # Regular plumbers
+    # Regular plumbers with addresses
     plumbers = [
         {
             'email': 'john@example.com',
@@ -42,8 +53,17 @@ def create_sample_users():
             'full_name': 'John Smith',
             'company_name': 'Smith Plumbing',
             'phone': '555-234-5678',
+            'address': '456 Main St',
+            'city': 'New York',
+            'state': 'NY',
+            'zip_code': '10001',
+            'latitude': 40.7128,
+            'longitude': -74.0060,
+            'service_radius': 30,
             'service_areas': ['New York, NY', 'Brooklyn, NY', 'Queens, NY'],
-            'service_types': ['Residential Plumbing', 'Emergency Repairs', 'Pipe Repair']
+            'service_types': ['Residential Plumbing', 'Emergency Repairs', 'Pipe Repair'],
+            'business_description': 'Professional plumbing services for residential and commercial properties',
+            'license_number': 'NY-12345'
         },
         {
             'email': 'sarah@example.com',
@@ -51,8 +71,17 @@ def create_sample_users():
             'full_name': 'Sarah Johnson',
             'company_name': 'Johnson Plumbing Services',
             'phone': '555-345-6789',
+            'address': '789 Ocean Ave',
+            'city': 'Los Angeles',
+            'state': 'CA',
+            'zip_code': '90001',
+            'latitude': 34.0522,
+            'longitude': -118.2437,
+            'service_radius': 25,
             'service_areas': ['Los Angeles, CA', 'Long Beach, CA', 'Pasadena, CA'],
-            'service_types': ['Commercial Plumbing', 'Water Heater Installation', 'Drain Cleaning']
+            'service_types': ['Commercial Plumbing', 'Water Heater Installation', 'Drain Cleaning'],
+            'business_description': 'Expert plumbing solutions for commercial and industrial clients',
+            'license_number': 'CA-67890'
         },
         {
             'email': 'mike@example.com',
@@ -60,8 +89,17 @@ def create_sample_users():
             'full_name': 'Mike Wilson',
             'company_name': 'Wilson Plumbing & Heating',
             'phone': '555-456-7890',
+            'address': '321 Lake St',
+            'city': 'Chicago',
+            'state': 'IL',
+            'zip_code': '60601',
+            'latitude': 41.8781,
+            'longitude': -87.6298,
+            'service_radius': 35,
             'service_areas': ['Chicago, IL', 'Evanston, IL', 'Oak Park, IL'],
-            'service_types': ['Residential Plumbing', 'Commercial Plumbing', 'Gas Line Services']
+            'service_types': ['Residential Plumbing', 'Commercial Plumbing', 'Gas Line Services'],
+            'business_description': 'Full-service plumbing and heating solutions for all your needs',
+            'license_number': 'IL-45678'
         }
     ]
     
@@ -74,8 +112,19 @@ def create_sample_users():
             is_active=True,
             is_admin=False,
             is_verified=True,
+            # Add address fields
+            address=p['address'],
+            city=p['city'],
+            state=p['state'],
+            zip_code=p['zip_code'],
+            latitude=p['latitude'],
+            longitude=p['longitude'],
+            service_radius=p['service_radius'],
             service_areas=json.dumps(p['service_areas']),
             service_types=json.dumps(p['service_types']),
+            # Add required fields
+            business_description=p['business_description'],
+            license_number=p['license_number'],
             created_at=datetime.utcnow() - timedelta(days=random.randint(1, 20))
         )
         plumber.password_hash = generate_password_hash(p['password'])
@@ -104,34 +153,98 @@ def create_sample_leads():
     urgency_levels = ['low', 'medium', 'high']
     
     locations = [
+        # San Jose locations
+        {
+            'city': 'San Jose',
+            'state': 'CA',
+            'zip_code': '95110',
+            'latitude': 37.3382,
+            'longitude': -121.8863
+        },
+        {
+            'city': 'San Jose',
+            'state': 'CA',
+            'zip_code': '95123',
+            'latitude': 37.2469,
+            'longitude': -121.8310
+        },
+        {
+            'city': 'San Jose',
+            'state': 'CA',
+            'zip_code': '95125',
+            'latitude': 37.2987,
+            'longitude': -121.9012
+        },
+        {
+            'city': 'San Jose',
+            'state': 'CA',
+            'zip_code': '95128',
+            'latitude': 37.3219,
+            'longitude': -121.9462
+        },
+        {
+            'city': 'San Jose',
+            'state': 'CA',
+            'zip_code': '95131',
+            'latitude': 37.3871,
+            'longitude': -121.8897
+        },
+        # Other cities
         {
             'city': 'New York',
             'state': 'NY',
-            'zip_code': '10001'
+            'zip_code': '10001',
+            'latitude': 40.7128,
+            'longitude': -74.0060
         },
         {
             'city': 'Los Angeles',
             'state': 'CA',
-            'zip_code': '90001'
+            'zip_code': '90001',
+            'latitude': 34.0522,
+            'longitude': -118.2437
         },
         {
             'city': 'Chicago',
             'state': 'IL',
-            'zip_code': '60601'
+            'zip_code': '60601',
+            'latitude': 41.8781,
+            'longitude': -87.6298
         },
         {
             'city': 'Houston',
             'state': 'TX',
-            'zip_code': '77001'
+            'zip_code': '77001',
+            'latitude': 29.7604,
+            'longitude': -95.3698
         },
         {
             'city': 'Phoenix',
             'state': 'AZ',
-            'zip_code': '85001'
+            'zip_code': '85001',
+            'latitude': 33.4484,
+            'longitude': -112.0740
         }
     ]
     
     lead_titles = [
+        # San Jose specific leads
+        'Leaking water heater in downtown San Jose',
+        'Clogged kitchen sink in Willow Glen',
+        'Burst pipe emergency in Almaden Valley',
+        'New bathroom renovation in Rose Garden',
+        'Commercial kitchen plumbing issue in downtown',
+        'Sewer line backup in Cambrian Park',
+        'Gas line installation for new stove in Naglee Park',
+        'Water filtration system installation in Evergreen',
+        'Pipe leak under sink in Santa Teresa',
+        'Shower drain clogged in West San Jose',
+        'Garbage disposal not working in Alum Rock',
+        'Low water pressure issue in Berryessa',
+        'Water softener installation in North San Jose',
+        'Toilet constantly running in Japantown',
+        'Emergency plumbing repair in Downtown',
+        # General leads
         'Need plumber for leaking faucet',
         'Toilet constantly running',
         'Water heater replacement needed',
@@ -149,27 +262,47 @@ def create_sample_leads():
         'Water softener installation'
     ]
     
-    # Create 20 sample leads
-    for i in range(20):
+    # Create 30 sample leads (increased to include more San Jose leads)
+    for i in range(30):
         location = random.choice(locations)
         service_type = random.choice(service_types)
         urgency = random.choice(urgency_levels)
         days_ago = random.randint(0, 14)
         
+        # Add some random variation to coordinates within the city
+        lat_variation = random.uniform(-0.05, 0.05)  # Reduced variation for more accurate locations
+        lng_variation = random.uniform(-0.05, 0.05)
+        
+        # Generate San Jose specific details if the location is San Jose
+        if location['city'] == 'San Jose':
+            customer_name = f"San Jose Customer {i+1}"
+            customer_email = f"sjcustomer{i+1}@example.com"
+            customer_phone = f"408-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+            address = f"{random.randint(100, 9999)} {random.choice(['Main St', 'Oak St', 'Maple Ave', 'Park Ave', 'Market St'])}"
+            price = random.randint(100, 500)  # Higher price range for San Jose
+        else:
+            customer_name = f"Customer {i+1}"
+            customer_email = f"customer{i+1}@example.com"
+            customer_phone = f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+            address = f"{random.randint(100, 9999)} Main St"
+            price = random.randint(50, 300)
+        
         lead = Lead(
             title=random.choice(lead_titles),
             description=f"Customer needs assistance with {service_type.lower()}. This is a {urgency} priority request.",
-            customer_name=f"Customer {i+1}",
-            customer_email=f"customer{i+1}@example.com",
-            customer_phone=f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",
-            address=f"{random.randint(100, 9999)} Main St",
+            customer_name=customer_name,
+            customer_email=customer_email,
+            customer_phone=customer_phone,
+            address=address,
             city=location['city'],
             state=location['state'],
             zip_code=location['zip_code'],
+            latitude=location['latitude'] + lat_variation,
+            longitude=location['longitude'] + lng_variation,
             service_type=service_type,
             service_details="Detailed information about the service request would go here.",
             urgency=urgency,
-            price=random.randint(50, 300),
+            price=price,
             is_claimed=False,
             status='new',
             source='website',
@@ -187,20 +320,40 @@ def create_sample_leads():
         days_ago = random.randint(3, 30)
         claimed_days_ago = random.randint(0, days_ago - 1)
         
+        # Add some random variation to coordinates within the city
+        lat_variation = random.uniform(-0.05, 0.05)
+        lng_variation = random.uniform(-0.05, 0.05)
+        
+        # Generate San Jose specific details if the location is San Jose
+        if location['city'] == 'San Jose':
+            customer_name = f"San Jose Claimed Customer {i+1}"
+            customer_email = f"sjclaimedcustomer{i+1}@example.com"
+            customer_phone = f"408-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+            address = f"{random.randint(100, 9999)} {random.choice(['Main St', 'Oak St', 'Maple Ave', 'Park Ave', 'Market St'])}"
+            price = random.randint(100, 500)
+        else:
+            customer_name = f"Claimed Customer {i+1}"
+            customer_email = f"claimedcustomer{i+1}@example.com"
+            customer_phone = f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+            address = f"{random.randint(100, 9999)} Oak St"
+            price = random.randint(50, 300)
+        
         lead = Lead(
             title=random.choice(lead_titles),
             description=f"Customer needs assistance with {service_type.lower()}. This is a {urgency} priority request.",
-            customer_name=f"Claimed Customer {i+1}",
-            customer_email=f"claimedcustomer{i+1}@example.com",
-            customer_phone=f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",
-            address=f"{random.randint(100, 9999)} Oak St",
+            customer_name=customer_name,
+            customer_email=customer_email,
+            customer_phone=customer_phone,
+            address=address,
             city=location['city'],
             state=location['state'],
             zip_code=location['zip_code'],
+            latitude=location['latitude'] + lat_variation,
+            longitude=location['longitude'] + lng_variation,
             service_type=service_type,
             service_details="This lead has been claimed by a plumber.",
             urgency=urgency,
-            price=random.randint(50, 300),
+            price=price,
             is_claimed=True,
             claimed_at=datetime.utcnow() - timedelta(days=claimed_days_ago),
             plumber_id=plumber.id,
@@ -239,22 +392,15 @@ def create_sample_payments():
     db.session.commit()
     print("Sample payments created!")
 
-def initialize_database():
+def initialize_database(app=None):
     """Initialize the database with sample data."""
-    with app.app_context():
-        print("Initializing database...")
-        db.create_all()
+    if app is None:
+        app = create_app()
         
-        # Only create sample data if the database is empty
-        if User.query.count() == 0:
-            create_sample_users()
-            create_sample_leads()
-            create_sample_payments()
-            print("Database initialized with sample data!")
-        else:
-            print("Database already contains data. Skipping sample data creation.")
+    with app.app_context():
+        create_sample_users()
+        create_sample_leads()
+        create_sample_payments()
 
 if __name__ == '__main__':
-    env = os.environ.get('FLASK_ENV', 'development')
-    app = create_app(config[env])
     initialize_database() 

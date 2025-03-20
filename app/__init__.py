@@ -6,6 +6,8 @@ from flask_login import LoginManager, current_user
 from flask_cors import CORS
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
+from flask_session import Session
+from config import Config
 
 # Load environment variables
 load_dotenv()
@@ -15,18 +17,18 @@ db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 csrf = CSRFProtect()
+sess = Session()
 
-def create_app(config=None):
+# Import models to ensure they are registered with SQLAlchemy
+from app.models import user, lead, payment
+from app.models.user import User
+
+def create_app(config_class=Config):
     """Create and configure the Flask application."""
     app = Flask(__name__)
     
     # Load configuration
-    if config is None:
-        # Import config only when needed to avoid circular imports
-        from config import config as app_config
-        config = app_config['default']
-    
-    app.config.from_object(config)
+    app.config.from_object(config_class)
     
     # Initialize extensions with app
     db.init_app(app)
@@ -34,16 +36,22 @@ def create_app(config=None):
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     csrf.init_app(app)
+    sess.init_app(app)
     
     # Enable CORS for API routes
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     
     # Set up login manager
-    from app.models.user import User
-    
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
+    
+    # Set security headers
+    @app.after_request
+    def add_security_headers(response):
+        for header, value in app.config['SECURITY_HEADERS'].items():
+            response.headers[header] = value
+        return response
     
     # Register blueprints
     from app.auth import bp as auth_bp
@@ -51,6 +59,15 @@ def create_app(config=None):
     
     from app.api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
+    
+    from app.main import bp as main_bp
+    app.register_blueprint(main_bp)
+    
+    from app.leads import bp as leads_bp
+    app.register_blueprint(leads_bp, url_prefix='/leads')
+    
+    from app.plumber import bp as plumber_bp
+    app.register_blueprint(plumber_bp, url_prefix='/plumber')
     
     # Create upload directory if it doesn't exist
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
@@ -94,7 +111,4 @@ def create_app(config=None):
             return jsonify({'error': 'Internal server error'}), 500
         return render_template('errors/500.html'), 500
     
-    return app
-
-# Import models to ensure they are registered with SQLAlchemy
-from app.models import user, lead, payment 
+    return app 

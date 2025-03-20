@@ -15,13 +15,15 @@ class Lead(db.Model):
     city = db.Column(db.String(100), nullable=False)
     state = db.Column(db.String(2), nullable=False)
     zip_code = db.Column(db.String(10), nullable=False)
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
     service_type = db.Column(db.String(50), nullable=False)
     service_details = db.Column(db.Text)
     urgency = db.Column(db.String(20), default='normal') # low, normal, high, emergency
     price = db.Column(db.Float, nullable=False)
     is_claimed = db.Column(db.Boolean, default=False)
     claimed_at = db.Column(db.DateTime)
-    plumber_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    plumber_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'))
     status = db.Column(db.String(20), default='new') # new, contacted, scheduled, completed, closed
     notes = db.Column(db.Text)
     source = db.Column(db.String(50), default='website') # website, facebook, google, manual
@@ -80,4 +82,4 @@ class Lead(db.Model):
         return False
     
     def __repr__(self):
-        return f'<Lead {self.id}: {self.title}>' 
+        return f'<Lead {self.title}>' 

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lead.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .urgency-high {
+        border-left: 4px solid #dc3545;
+    }
+    .urgency-medium {
+        border-left: 4px solid #ffc107;
+    }
+    .urgency-low {
+        border-left: 4px solid #28a745;
+    }
+    #payment-form {
+        display: none;
+    }
+    .payment-error {
+        color: #dc3545;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title">{{ lead.title }}</h1>
+                    <p class="text-muted">Posted {{ lead.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    
+                    <div class="mb-4">
+                        <h5>Description</h5>
+                        <p>{{ lead.description }}</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Service Details</h5>
+                        <p><strong>Type:</strong> {{ lead.service_type }}</p>
+                        <p><strong>Details:</strong> {{ lead.service_details }}</p>
+                        <p><strong>Urgency:</strong> 
+                            <span class="badge bg-{{ 'danger' if lead.urgency == 'high' else 'warning' if lead.urgency == 'medium' else 'info' }}">
+                                {{ lead.urgency }}
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Location</h5>
+                        <p>{{ lead.address }}</p>
+                        <p>{{ lead.city }}, {{ lead.state }} {{ lead.zip_code }}</p>
+                    </div>
+
+                    {% if lead.is_claimed and lead.plumber_id == current_user.id %}
+                    <div class="mb-4">
+                        <h5>Customer Information</h5>
+                        <p><strong>Name:</strong> {{ lead.customer_name }}</p>
+                        <p><strong>Email:</strong> {{ lead.customer_email }}</p>
+                        <p><strong>Phone:</strong> {{ lead.customer_phone }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Lead Status</h5>
+                    <ul class="list-unstyled">
+                        <li><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if lead.status == 'completed' else 'warning' if lead.status == 'in_progress' else 'info' }}">
+                                {{ lead.status|replace('_', ' ')|title }}
+                            </span>
+                        </li>
+                        <li><strong>Posted:</strong> {{ lead.created_at.strftime('%Y-%m-%d %H:%M') }}</li>
+                        {% if lead.claimed_at %}
+                        <li><strong>Claimed:</strong> {{ lead.claimed_at.strftime('%Y-%m-%d %H:%M') }}</li>
+                        {% endif %}
+                    </ul>
+
+                    {% if not lead.is_claimed %}
+                    <div class="mt-4">
+                        <h5>Claim Lead</h5>
+                        <p class="text-muted">Price: ${{ "%.2f"|format(lead.price) }}</p>
+                        <form id="claim-form">
+                            <div id="payment-element" class="mb-3">
+                                <!-- Stripe Payment Element will be inserted here -->
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100" id="submit-button">
+                                Claim Lead
+                            </button>
+                        </form>
+                        <div id="payment-message" class="alert alert-danger mt-3" style="display: none;"></div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('claim-form');
+        const submitButton = document.getElementById('submit-button');
+        const paymentMessage = document.getElementById('payment-message');
+        
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                submitButton.disabled = true;
+                submitButton.innerHTML = 'Processing...';
+                
+                try {
+                    const response = await fetch('{{ url_for("leads.claim", lead_id=lead.id) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        // Redirect to the lead view page
+                        window.location.href = '{{ url_for("leads.view", lead_id=lead.id) }}';
+                    } else {
+                        throw new Error(data.error || 'Failed to claim lead');
+                    }
+                } catch (error) {
+                    paymentMessage.textContent = error.message;
+                    paymentMessage.style.display = 'block';
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = 'Claim Lead';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %} 

@@ -1,65 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PlumberLeads</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-</head>
-<body>
-    <header>
-        <div class="container">
-            <h1>PlumberLeads</h1>
-            <nav>
-                <ul>
-                    {% if current_user.is_authenticated %}
-                        <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
-                        <li><a href="{{ url_for('api.get_leads') }}">View Leads</a></li>
-                    {% else %}
-                        <li><a href="{{ url_for('auth.login') }}">Login</a></li>
-                        <li><a href="{{ url_for('auth.register') }}">Register</a></li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
-    </header>
-    
-    <main>
-        <div class="container">
-            <section class="hero">
-                <h2>Connect with qualified customers in your area</h2>
-                <p>PlumberLeads helps professional plumbers grow their business by providing high-quality leads from customers needing plumbing services.</p>
-                {% if not current_user.is_authenticated %}
-                    <div class="cta-buttons">
-                        <a href="{{ url_for('auth.register') }}" class="btn primary">Sign Up Now</a>
-                        <a href="{{ url_for('auth.login') }}" class="btn secondary">Login</a>
-                    </div>
-                {% endif %}
-            </section>
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2 text-center">
+            <h1 class="display-4 mb-4">Welcome to PlumberLeads</h1>
+            <p class="lead mb-4">Connect with quality plumbing leads in your area</p>
             
-            <section class="features">
-                <div class="feature">
-                    <h3>Find Local Leads</h3>
-                    <p>Browse leads in your service area that match your expertise.</p>
+            {% if session.get('user') %}
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{{ url_for('leads.available') }}" class="btn btn-primary btn-lg me-md-2">View Available Leads</a>
+                    <a href="{{ url_for('leads.submit') }}" class="btn btn-outline-primary btn-lg">Submit a Lead</a>
                 </div>
-                <div class="feature">
-                    <h3>Claim Instantly</h3>
-                    <p>Claim leads with one click and contact customers immediately.</p>
+            {% else %}
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg me-md-2">Register as a Plumber</a>
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary btn-lg">Login</a>
                 </div>
-                <div class="feature">
-                    <h3>Grow Your Business</h3>
-                    <p>Increase your customer base and revenue with qualified leads.</p>
-                </div>
-            </section>
+            {% endif %}
         </div>
-    </main>
-    
-    <footer>
-        <div class="container">
-            <p>&copy; 2023 PlumberLeads. All rights reserved.</p>
-        </div>
-    </footer>
-    
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html> 
+    </div>
+</div>
+{% endblock %} 

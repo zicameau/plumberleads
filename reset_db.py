@@ -18,6 +18,7 @@ def reset_database():
     try:
         from app import create_app, db
         from app.models import User, Lead, Payment
+        from sqlalchemy import text
 
         app = create_app()
         
@@ -27,6 +28,13 @@ def reset_database():
             
             print("Creating all tables...")
             db.create_all()
+            
+            # Install required extensions
+            print("Installing required extensions...")
+            with db.engine.connect() as conn:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS cube"))
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS earthdistance"))
+                conn.commit()
             
             print("Database reset successfully!")
             

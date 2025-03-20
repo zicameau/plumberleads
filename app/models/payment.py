@@ -5,15 +5,15 @@ import uuid
 class Payment(db.Model):
     __tablename__ = 'payments'
     
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     lead_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('leads.id'), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    currency = db.Column(db.String(3), default='USD')
-    payment_method = db.Column(db.String(50))
-    payment_processor = db.Column(db.String(50), default='stripe')
-    processor_payment_id = db.Column(db.String(100))  # Stripe payment ID
-    status = db.Column(db.String(20), default='pending')  # pending, completed, failed, refunded
+    currency = db.Column(db.String(3), nullable=False, default='USD')
+    payment_method = db.Column(db.String(50), nullable=False)
+    payment_processor = db.Column(db.String(50), nullable=False)
+    processor_payment_id = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(20), nullable=False)
     refund_reason = db.Column(db.Text)
     refunded_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -53,4 +53,4 @@ class Payment(db.Model):
         self.refunded_at = datetime.utcnow()
     
     def __repr__(self):
-        return f'<Payment {self.id}: ${self.amount} for Lead {self.lead_id}>' 
+        return f'<Payment {self.id}: {self.amount} {self.currency}>' 

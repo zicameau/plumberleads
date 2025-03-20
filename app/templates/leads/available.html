@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Available Leads{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Available Leads</h1>
+    
+    {% if leads %}
+        <div class="row">
+            {% for lead in leads %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ lead.title }}</h5>
+                            <p class="card-text">{{ lead.description }}</p>
+                            <ul class="list-unstyled">
+                                <li><strong>Location:</strong> {{ lead.city }}, {{ lead.state }}</li>
+                                <li><strong>Service Type:</strong> {{ lead.service_type }}</li>
+                                <li><strong>Urgency:</strong> 
+                                    <span class="badge bg-{{ 'danger' if lead.urgency == 'high' else 'warning' if lead.urgency == 'medium' else 'info' }}">
+                                        {{ lead.urgency }}
+                                    </span>
+                                </li>
+                                <li><strong>Price:</strong> ${{ "%.2f"|format(lead.price) }}</li>
+                            </ul>
+                            <a href="{{ url_for('leads.view', lead_id=lead.id) }}" class="btn btn-primary">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No available leads at the moment. Please check back later.
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

@@ -1,27 +1,33 @@
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import UserMixin
+from app import db
 import json
-from app import db, login_manager
+import uuid
 
-class User(UserMixin, db.Model):
+class User(db.Model):
     __tablename__ = 'users'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(128))
     full_name = db.Column(db.String(100), nullable=False)
-    company_name = db.Column(db.String(100))
-    phone = db.Column(db.String(20))
+    company_name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)
     is_verified = db.Column(db.Boolean, default=False)
     profile_image = db.Column(db.String(255))
-    business_description = db.Column(db.Text)
-    license_number = db.Column(db.String(50))
+    business_description = db.Column(db.Text, nullable=False)
+    license_number = db.Column(db.String(50), nullable=False)
     has_insurance = db.Column(db.Boolean, default=False)
-    service_areas = db.Column(db.Text) # JSON string of service areas
-    service_types = db.Column(db.Text) # JSON string of service types
+    # Address fields
+    address = db.Column(db.String(255), nullable=False)
+    city = db.Column(db.String(100), nullable=False)
+    state = db.Column(db.String(2), nullable=False)
+    zip_code = db.Column(db.String(10), nullable=False)
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    service_radius = db.Column(db.Integer, nullable=False, default=25)  # Default 25 mile radius
+    service_areas = db.Column(db.Text, nullable=False) # JSON string of service areas
+    service_types = db.Column(db.Text, nullable=False) # JSON string of service types
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -31,12 +37,6 @@ class User(UserMixin, db.Model):
     
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
-        
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-        
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
     
     def set_service_areas(self, areas):
         """Set service areas as a JSON string"""
@@ -78,9 +78,4 @@ class User(UserMixin, db.Model):
         }
     
     def __repr__(self):
-        return f'<User {self.email}>'
-
-
-@login_manager.user_loader
-def load_user(id):
-    return User.query.get(int(id)) 
+        return f'<User {self.full_name}>' 

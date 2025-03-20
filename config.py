@@ -3,6 +3,7 @@ Application configuration settings.
 """
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Load environment variables from .env file
 load_dotenv()
@@ -10,7 +11,7 @@ load_dotenv()
 class Config:
     """Base configuration."""
     # Flask settings
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-for-development-only'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev'
     FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
     
     # Database settings
@@ -29,6 +30,14 @@ class Config:
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or os.path.join(os.path.abspath(os.path.dirname(__file__)), 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+
+    # Email settings
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True').lower() in ['true', '1', 't']
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
     
     # Stripe settings
     STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
@@ -56,6 +65,22 @@ class Config:
         'Pipe Installation', 'Water Heater Service', 'Fixture Installation',
         'Sewer Repair', 'Backflow Testing', 'Water Line Repair', 'Commercial Plumbing'
     ]
+
+    # Session configuration
+    SESSION_TYPE = 'filesystem'
+    SESSION_PERMANENT = True
+    PERMANENT_SESSION_LIFETIME = timedelta(days=1)
+    SESSION_COOKIE_SECURE = True  # Set to True in production
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    
+    # Security headers
+    SECURITY_HEADERS = {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'SAMEORIGIN',
+        'X-XSS-Protection': '1; mode=block',
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+    }
 
 
 class DevelopmentConfig(Config):
