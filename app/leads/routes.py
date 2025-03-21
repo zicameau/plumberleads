@@ -11,6 +11,7 @@ import stripe
 from datetime import datetime
 from flask_login import login_required
 from functools import wraps
+from app.utils.pricing import calculate_lead_price
 
 def login_required(f):
     @wraps(f)
@@ -57,7 +58,8 @@ def view(lead_id):
     
     return render_template('leads/view.html', 
                          lead=lead,
-                         time_left=time_left)
+                         time_left=time_left,
+                         calculate_lead_price=calculate_lead_price)
 
 @bp.route('/<uuid:lead_id>/claim', methods=['POST'])
 @login_required
@@ -266,10 +268,239 @@ def release(lead_id):
         lead.release()
 
         flash('Lead released successfully.', 'success')
-        return redirect(url_for('plumber.dashboard'))
+        return redirect(url_for('leads.view', lead_id=lead_id))
 
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Error releasing lead: {str(e)}')
         flash('An error occurred while releasing the lead.', 'error')
-        return redirect(url_for('leads.view', lead_id=lead_id)) 
+        return redirect(url_for('leads.view', lead_id=lead_id))
+
+@bp.route('/<uuid:lead_id>/create-checkout-session', methods=['POST'])
+@login_required
+def create_checkout_session(lead_id):
+    """Create a Stripe Checkout session."""
+    try:
+        lead = Lead.query.get_or_404(lead_id)
+        user_id = session['user']['id']
+
+        # Verify the lead is reserved by the current user
+        if lead.status != 'reserved' or lead.reserved_by_id != user_id:
+            return jsonify({'error': 'Invalid lead or not reserved by you'}), 400
+
+        # Calculate the price using the utility function
+        pricing = calculate_lead_price(lead.price)
+        price_to_charge = pricing['lead_price']  # Access as dictionary
+
+        # Initialize Stripe
+        stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
+
+        # Create checkout session
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': lead.title,
+                        'description': f"Lead for {lead.service_type} in {lead.city}, {lead.state} ({pricing['percentage']*100:.0f}% of total job price)",
+                    },
+                    'unit_amount': int(price_to_charge * 100),  # Convert to cents
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=url_for('leads.payment_success', lead_id=lead_id, _external=True),
+            cancel_url=url_for('leads.view', lead_id=lead_id, _external=True),
+            metadata={
+                'lead_id': str(lead.id),
+                'user_id': str(user_id)
+            }
+        )
+
+        # Create payment record
+        payment = Payment(
+            lead_id=lead.id,
+            user_id=user_id,
+            amount=price_to_charge,
+            currency='usd',
+            payment_method='card',
+            payment_processor='stripe',
+            processor_payment_id=checkout_session.id,
+            status='pending',
+            created_at=datetime.utcnow()
+        )
+        db.session.add(payment)
+        db.session.commit()
+
+        return jsonify({
+            'sessionId': checkout_session.id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error creating checkout session: {str(e)}')
+        return jsonify({'error': 'An error occurred while creating the checkout session'}), 500
+
+@bp.route('/<uuid:lead_id>/payment-success')
+@login_required
+def payment_success(lead_id):
+    """Handle successful payment."""
+    try:
+        lead = Lead.query.get_or_404(lead_id)
+        user_id = session['user']['id']
+
+        # Verify the lead is reserved by the current user
+        if lead.status != 'reserved' or str(lead.reserved_by_id) != str(user_id):  # Convert both to strings for comparison
+            flash('Invalid lead or not reserved by you', 'error')
+            return redirect(url_for('leads.view', lead_id=lead_id))
+
+        # Get the most recent payment for this lead
+        payment = Payment.query.filter_by(
+            lead_id=lead.id,
+            user_id=user_id,
+            status='pending'
+        ).order_by(Payment.created_at.desc()).first()
+
+        if not payment:
+            current_app.logger.error(f"No pending payment found for lead {lead_id}")
+            flash('No pending payment found.', 'error')
+            return redirect(url_for('leads.view', lead_id=lead_id))
+
+        # Update lead status and tracking
+        lead.status = 'claimed'
+        lead.claimed_at = datetime.utcnow()
+        lead.claimed_by_id = user_id
+        lead.contact_release_count += 1
+
+        # Update payment status
+        payment.status = 'completed'
+
+        # Log the changes
+        from app.utils.lead_history import log_lead_change
+        log_lead_change(
+            lead=lead,
+            field_name='status',
+            old_value='reserved',
+            new_value='claimed',
+            change_type='claim',
+            user_id=user_id
+        )
+
+        db.session.commit()
+        current_app.logger.info(f"Successfully claimed lead {lead_id}")
+
+        flash('Payment successful! You can now view the customer contact information.', 'success')
+            
+        return redirect(url_for('leads.view', lead_id=lead_id))
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error in payment success route: {str(e)}')
+        flash('An error occurred while processing the payment', 'error')
+        return redirect(url_for('leads.view', lead_id=lead_id))
+
+@bp.route('/webhook', methods=['POST'])
+def stripe_webhook():
+    """Handle Stripe webhook events."""
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature')
+    webhook_secret = current_app.config['STRIPE_WEBHOOK_SECRET']
+
+    current_app.logger.info(f"Received webhook with signature header: {sig_header}")
+    current_app.logger.info(f"Using webhook secret: {webhook_secret[:6]}...")  # Log first 6 chars for verification
+
+    try:
+        # Log the raw payload for debugging
+        payload_str = payload.decode('utf-8')
+        current_app.logger.info(f"Webhook payload: {payload_str}")
+        
+        # Verify the webhook signature
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, webhook_secret
+        )
+        
+        current_app.logger.info(f"Successfully verified webhook signature")
+        current_app.logger.info(f"Webhook event type: {event['type']}")
+        
+        # Handle the checkout.session.completed event
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            
+            # Log the session data
+            current_app.logger.info(f"Session data: {session}")
+            
+            # Get metadata
+            metadata = session.get('metadata', {})
+            current_app.logger.info(f"Session metadata: {metadata}")
+            
+            lead_id = metadata.get('lead_id')
+            user_id = metadata.get('user_id')
+            
+            if not lead_id or not user_id:
+                current_app.logger.error(f"Missing metadata - lead_id: {lead_id}, user_id: {user_id}")
+                return jsonify({'error': 'Missing required metadata'}), 400
+
+            try:
+                lead = Lead.query.get(lead_id)
+                if not lead:
+                    current_app.logger.error(f"Lead not found: {lead_id}")
+                    return jsonify({'error': 'Lead not found'}), 404
+
+                if lead.status != 'reserved' or str(lead.reserved_by_id) != user_id:
+                    current_app.logger.error(f"Invalid lead state or user: status={lead.status}, reserved_by={lead.reserved_by_id}, user_id={user_id}")
+                    return jsonify({'error': 'Invalid lead state'}), 400
+
+                # Create payment record
+                payment = Payment(
+                    lead_id=lead.id,
+                    user_id=user_id,
+                    amount=session['amount_total'] / 100,  # Convert from cents
+                    currency=session['currency'],
+                    payment_method='card',
+                    payment_processor='stripe',
+                    processor_payment_id=session['id'],
+                    status='completed',
+                    created_at=datetime.fromtimestamp(session['created'])
+                )
+                db.session.add(payment)
+
+                # Update lead status and tracking
+                lead.status = 'claimed'
+                lead.claimed_at = datetime.utcnow()
+                lead.claimed_by_id = user_id
+                lead.contact_release_count += 1
+
+                # Log the changes
+                from app.utils.lead_history import log_lead_change
+                log_lead_change(
+                    lead=lead,
+                    field_name='status',
+                    old_value='reserved',
+                    new_value='claimed',
+                    change_type='claim',
+                    user_id=user_id
+                )
+
+                db.session.commit()
+                current_app.logger.info(f"Successfully processed payment and claimed lead {lead_id}")
+                return jsonify({'status': 'success'})
+                
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Error processing webhook: {str(e)}")
+                return jsonify({'error': str(e)}), 500
+
+        # Return success for other event types
+        return jsonify({'status': 'success'})
+
+    except ValueError as e:
+        current_app.logger.error(f"Invalid payload: {str(e)}")
+        return jsonify({'error': 'Invalid payload'}), 400
+    except stripe.error.SignatureVerificationError as e:
+        current_app.logger.error(f"Invalid signature: {str(e)}")
+        current_app.logger.error(f"Expected secret starting with: {webhook_secret[:6]}...")
+        return jsonify({'error': 'Invalid signature'}), 400
+    except Exception as e:
+        current_app.logger.error(f"Webhook error: {str(e)}")
+        return jsonify({'error': str(e)}), 500

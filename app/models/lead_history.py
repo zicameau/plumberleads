@@ -8,7 +8,7 @@ class LeadHistory(db.Model):
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     lead_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('leads.id'), nullable=False)
-    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'))
     field_name = db.Column(db.String(50), nullable=False)
     old_value = db.Column(db.String(255))
     new_value = db.Column(db.String(255))
@@ -16,8 +16,12 @@ class LeadHistory(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
-    lead = db.relationship('Lead', backref=db.backref('history', lazy=True))
-    user = db.relationship('User', backref=db.backref('lead_changes', lazy=True))
+    lead = db.relationship('Lead', backref=db.backref(
+        'history',
+        lazy='dynamic',
+        order_by='LeadHistory.created_at.desc()'
+    ))
+    user = db.relationship('User')
 
     @classmethod
     def log_status_change(cls, lead, old_status, new_status, user_id=None):

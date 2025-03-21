@@ -30,10 +30,14 @@ class Lead(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     reserved_at = db.Column(db.DateTime)
     reserved_by_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'))
+    contact_release_count = db.Column(db.Integer, default=0)
+    claimed_at = db.Column(db.DateTime)
+    claimed_by_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'))
     
     # Relationships
     payment = db.relationship('Payment', backref='lead', uselist=False)
     reserved_by = db.relationship('User', foreign_keys=[reserved_by_id], back_populates='reserved_leads')
+    claimed_by = db.relationship('User', foreign_keys=[claimed_by_id], backref='claimed_leads')
     
     def to_dict(self, include_contact=False):
         """Convert to dictionary, optionally including contact info"""
@@ -93,14 +97,34 @@ class Lead(db.Model):
         db.session.commit()
         
     def claim(self, user_id):
-        """Claim a lead after payment."""
+        """Claim a lead after successful payment."""
+        from app.utils.lead_history import log_lead_change
+        
         old_status = self.status
         self.status = 'claimed'
+        self.claimed_at = datetime.utcnow()
+        self.claimed_by_id = user_id
+        self.contact_release_count += 1
         
         # Log the status change
-        db.session.add(LeadHistory.log_status_change(self, old_status, 'claimed', user_id))
+        log_lead_change(
+            lead=self,
+            field_name='status',
+            old_value=old_status,
+            new_value='claimed',
+            change_type='claim',
+            user_id=user_id
+        )
         
-        db.session.commit()
+        # Log the contact release
+        log_lead_change(
+            lead=self,
+            field_name='contact_release_count',
+            old_value=self.contact_release_count - 1,
+            new_value=self.contact_release_count,
+            change_type='contact_release',
+            user_id=user_id
+        )
         
     def update_status(self, status):
         """Update the status of this lead"""

@@ -3,50 +3,54 @@
 {% block title %}Nearby Leads{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-12">
-            <h1 class="mb-4">Nearby Leads</h1>
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1>Available Nearby Leads</h1>
         </div>
     </div>
 
-    <!-- Leads Table -->
     <div class="row">
-        <div class="col-md-12">
+        <div class="col-12">
             <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Nearby Leads</h5>
+                </div>
                 <div class="card-body">
                     {% if leads %}
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Title</th>
-                                        <th>Location</th>
-                                        <th>Service Type</th>
-                                        <th>Urgency</th>
-                                        <th>Price</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for lead in leads %}
-                                    <tr>
-                                        <td>{{ lead.title }}</td>
-                                        <td>{{ lead.city }}, {{ lead.state }}</td>
-                                        <td>{{ lead.service_type }}</td>
-                                        <td>
-                                            <span class="badge bg-{{ 'danger' if lead.urgency == 'high' else 'warning' if lead.urgency == 'medium' else 'info' }}">
-                                                {{ lead.urgency }}
-                                            </span>
-                                        </td>
-                                        <td>${{ "%.2f"|format(lead.price) }}</td>
-                                        <td>
-                                            <a href="{{ url_for('leads.view', lead_id=lead.id) }}" class="btn btn-sm btn-primary">View</a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                        <div class="list-group">
+                            {% for lead in leads %}
+                                {% set pricing = calculate_lead_price(lead.price) %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <a href="{{ url_for('leads.view', lead_id=lead.id) }}" class="text-decoration-none text-dark flex-grow-1">
+                                            <h5 class="mb-0">{{ lead.title }}</h5>
+                                        </a>
+                                        <form action="{{ url_for('leads.reserve', lead_id=lead.id) }}" method="POST" class="d-inline ms-3">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">Reserve</button>
+                                        </form>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-3 text-muted small">
+                                        <div>
+                                            <i class="fas fa-dollar-sign me-1"></i>
+                                            Job Value: <span class="text-primary">${{ "%.2f"|format(lead.price) }}</span>
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-tag me-1"></i>
+                                            Lead Cost: <span class="text-success">${{ "%.2f"|format(pricing['lead_price']) }}</span>
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-map-marker-alt me-1"></i>
+                                            Distance: <span class="text-info">{{ "%.1f"|format(lead.distance) }} miles</span>
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-tools me-1"></i>
+                                            Service: <span class="text-secondary">{{ lead.service_type }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
                         </div>
                     {% else %}
                         <p class="text-muted">No nearby leads available at the moment.</p>
@@ -56,4 +60,31 @@
         </div>
     </div>
 </div>
+
+{% block extra_css %}
+<style>
+    .card {
+        margin-bottom: 20px;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    .card-header {
+        border-bottom: 1px solid rgba(0,0,0,.125);
+    }
+    .list-group-item {
+        border-left: none;
+        border-right: none;
+        padding: 1rem;
+    }
+    .list-group-item:first-child {
+        border-top: none;
+    }
+    .list-group-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
+{% endblock %}
 {% endblock %} 

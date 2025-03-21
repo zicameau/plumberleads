@@ -44,22 +44,68 @@
 
                     <!-- Price -->
                     <div class="mb-4">
-                        <h5>Price</h5>
-                        <p class="h4">${{ "%.2f"|format(lead.price) }}</p>
+                        <h5>Pricing Information</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="mb-3">Total Job Value</h6>
+                                        <p class="h4 text-primary">${{ "%.2f"|format(lead.price) }}</p>
+                                        <small class="text-muted">Estimated value of the entire job</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="mb-3">Lead Claim Price</h6>
+                                        {% set pricing = calculate_lead_price(lead.price) %}
+                                        <p class="h4 text-success">${{ "%.2f"|format(pricing.lead_price) }}</p>
+                                        <small class="text-muted">
+                                            {% if pricing.is_minimum_price %}
+                                                Minimum lead price applied
+                                            {% else %}
+                                                {{ (pricing.percentage * 100)|int }}% of job value
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i>
+                                        Lead price is calculated as {{ (pricing.percentage * 100)|int }}% of the job value, with a minimum price of ${{ "%.2f"|format(pricing.minimum_price) }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Customer Information -->
-                    {% if lead.status == 'claimed' and current_user.id == lead.claimed_by_id %}
-                    <div class="mb-4">
-                        <h5>Customer Information</h5>
-                        <p><strong>Name:</strong> {{ lead.customer_name }}</p>
-                        <p><strong>Email:</strong> {{ lead.customer_email }}</p>
-                        <p><strong>Phone:</strong> {{ lead.customer_phone }}</p>
+                    {% if lead.status == 'claimed' and lead.claimed_by_id == session['user']['id'] %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Customer Contact Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <p><strong>Name:</strong> {{ lead.customer_name }}</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <p><strong>Email:</strong> {{ lead.customer_email }}</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <p><strong>Phone:</strong> {{ lead.customer_phone }}</p>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <p><strong>Full Address:</strong><br>
+                                    {{ lead.address }}<br>
+                                    {{ lead.city }}, {{ lead.state }} {{ lead.zip_code }}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
 
                     <!-- Action Buttons -->
-
                     {% if session.get('user') %}
                         {% if not session.get('user').is_admin %}
                             {% if lead.status == 'available' %}
@@ -72,16 +118,19 @@
                             {% elif lead.status == 'reserved' and session.get('user').id == lead.reserved_by_id %}
                             <div class="reservation-timer active" data-time-left="{{ time_left }}">
                                 <p><strong>Your reservation expires in:</strong> <span id="timer" class="text-warning"></span></p>
-                                <div id="payment-section">
-                                    <button class="btn btn-success" id="completePaymentBtn">Complete Payment</button>
-                                </div>
-                                <div id="expired-section" style="display: none;">
-                                    <p class="text-danger">Your reservation has expired. You can release this lead to make it available again.</p>
-                                </div>
+                                {% if time_left and time_left > 0 %}
+                                    <div id="payment-section">
+                                        <button id="completePaymentBtn" class="btn btn-primary">Complete Payment</button>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        Your reservation has expired. You can release this lead to make it available for others.
+                                    </div>
+                                {% endif %}
                                 <div class="mt-3">
                                     <form action="{{ url_for('leads.release', lead_id=lead.id) }}" method="POST" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn btn-secondary">Release Lead</button>
+                                        <button type="submit" class="btn btn-danger">Release Lead</button>
                                     </form>
                                 </div>
                             </div>
@@ -100,22 +149,6 @@
                         </div>
                         {% endif %}
                     {% endif %}
-                </div>
-            </div>
-
-            <!-- Payment Form -->
-            <div class="card mt-4" id="paymentCard" style="display: none;">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Complete Payment</h5>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-danger payment-message" id="paymentError"></div>
-                    <form id="payment-form">
-                        <div id="payment-element"></div>
-                        <button class="btn btn-primary mt-3" type="submit" id="submitPayment">
-                            Pay ${{ "%.2f"|format(lead.price) }}
-                        </button>
-                    </form>
                 </div>
             </div>
 
@@ -166,65 +199,35 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 const stripe = Stripe('{{ config.STRIPE_PUBLIC_KEY }}');
-const elements = stripe.elements();
-let paymentElement;
-
-// Initialize payment element
-function initializePayment(clientSecret) {
-    paymentElement = elements.create('payment');
-    paymentElement.mount('#payment-element');
-    document.getElementById('paymentCard').style.display = 'block';
-}
 
 // Handle payment completion
 document.getElementById('completePaymentBtn')?.addEventListener('click', async () => {
     try {
-        const response = await fetch(`/api/leads/{{ lead.id }}/complete-payment`, {
+        const response = await fetch(`/leads/{{ lead.id }}/create-checkout-session`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
             }
         });
         
         const data = await response.json();
         
         if (response.ok) {
-            // Reload page to show customer details
-            window.location.reload();
+            // Redirect to Stripe Checkout
+            const result = await stripe.redirectToCheckout({
+                sessionId: data.sessionId
+            });
+            
+            if (result.error) {
+                alert(result.error.message);
+            }
         } else {
             alert(data.error);
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('An error occurred while completing the payment');
-    }
-});
-
-// Handle payment form submission
-document.getElementById('payment-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const submitButton = document.getElementById('submitPayment');
-    submitButton.disabled = true;
-    
-    try {
-        const { error } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-                return_url: `${window.location.origin}/leads/{{ lead.id }}`,
-            },
-        });
-        
-        if (error) {
-            const errorElement = document.getElementById('paymentError');
-            errorElement.textContent = error.message;
-            errorElement.classList.add('error');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('An error occurred while processing the payment');
-    } finally {
-        submitButton.disabled = false;
+        alert('An error occurred while initializing the payment');
     }
 });
 
@@ -236,16 +239,16 @@ function startTimer(timeLeft) {
     
     if (timeLeft <= 0) {
         timerElement.textContent = 'EXPIRED';
-        paymentSection.style.display = 'none';
-        expiredSection.style.display = 'block';
+        if (paymentSection) paymentSection.style.display = 'none';
+        if (expiredSection) expiredSection.style.display = 'block';
         return;
     }
     
     function updateTimer() {
         if (timeLeft <= 0) {
             timerElement.textContent = 'EXPIRED';
-            paymentSection.style.display = 'none';
-            expiredSection.style.display = 'block';
+            if (paymentSection) paymentSection.style.display = 'none';
+            if (expiredSection) expiredSection.style.display = 'block';
             return;
         }
         

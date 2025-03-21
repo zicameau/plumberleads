@@ -52,11 +52,11 @@ class Config:
     # Local development mode
     LOCAL_DEV = os.environ.get('LOCAL_DEV', 'False').lower() in ['true', '1', 't']
     
-    # Default lead pricing (in USD)
-    DEFAULT_LEAD_PRICE = 15.00
-    
     # Lead reservation settings
     LEAD_RESERVATION_EXPIRY_MINUTES = int(os.environ.get('LEAD_RESERVATION_EXPIRY_MINUTES', 15))
+
+    MINIMUM_LEAD_PRICE = float(os.environ.get('MINIMUM_LEAD_PRICE', 30.00))
+    LEAD_CLAIM_PERCENTAGE = float(os.environ.get('LEAD_CLAIM_PERCENTAGE', 0.15))
     
     # Service areas and types
     SERVICE_AREAS = [
