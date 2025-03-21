@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from app import db
 import uuid
 
@@ -21,10 +21,9 @@ class Lead(db.Model):
     service_details = db.Column(db.Text)
     urgency = db.Column(db.String(20), default='normal') # low, normal, high, emergency
     price = db.Column(db.Float, nullable=False)
-    is_claimed = db.Column(db.Boolean, default=False)
-    claimed_at = db.Column(db.DateTime)
-    plumber_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'))
-    status = db.Column(db.String(20), default='new') # new, contacted, scheduled, completed, closed
+    status = db.Column(db.String(20), default='available') # available, reserved, claimed, completed, closed
+    reserved_at = db.Column(db.DateTime)
+    reserved_by_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'))
     notes = db.Column(db.Text)
     source = db.Column(db.String(50), default='website') # website, facebook, google, manual
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -32,11 +31,12 @@ class Lead(db.Model):
     
     # Relationships
     payment = db.relationship('Payment', backref='lead', uselist=False)
+    reserved_by = db.relationship('User', foreign_keys=[reserved_by_id], back_populates='reserved_leads')
     
     def to_dict(self, include_contact=False):
         """Convert to dictionary, optionally including contact info"""
         data = {
-            'id': str(self.id),  # Convert UUID to string
+            'id': str(self.id),
             'title': self.title,
             'description': self.description,
             'city': self.city,
@@ -46,16 +46,15 @@ class Lead(db.Model):
             'service_details': self.service_details,
             'urgency': self.urgency,
             'price': self.price,
-            'is_claimed': self.is_claimed,
-            'claimed_at': self.claimed_at.isoformat() if self.claimed_at else None,
             'status': self.status,
+            'reserved_at': self.reserved_at.isoformat() if self.reserved_at else None,
             'source': self.source,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
         
-        # Only include contact info if requested (e.g., for claimed leads)
-        if include_contact:
+        # Only include contact info if requested and lead is claimed
+        if include_contact and self.status == 'claimed':
             data.update({
                 'customer_name': self.customer_name,
                 'customer_email': self.customer_email,
@@ -66,20 +65,36 @@ class Lead(db.Model):
             
         return data
     
-    def claim(self, plumber_id):
-        """Claim this lead for a plumber"""
-        self.is_claimed = True
-        self.plumber_id = plumber_id
-        self.claimed_at = datetime.utcnow()
+    def reserve(self, user_id):
+        """Reserve this lead for a plumber"""
+        self.status = 'reserved'
+        self.reserved_by_id = user_id
+        self.reserved_at = datetime.utcnow()
+        
+    def claim(self, user_id):
+        """Claim this lead after successful payment"""
         self.status = 'claimed'
+        
+    def release(self):
+        """Release a reserved lead back to available status"""
+        self.status = 'available'
+        self.reserved_by_id = None
+        self.reserved_at = None
         
     def update_status(self, status):
         """Update the status of this lead"""
-        valid_statuses = ['new', 'claimed', 'contacted', 'scheduled', 'completed', 'closed']
+        valid_statuses = ['available', 'reserved', 'claimed', 'completed', 'closed']
         if status in valid_statuses:
             self.status = status
             return True
         return False
+    
+    def is_reservation_expired(self, max_minutes=60):
+        """Check if the lead reservation has expired"""
+        if not self.reserved_at:
+            return False
+        expiration_time = self.reserved_at + timedelta(minutes=max_minutes)
+        return datetime.utcnow() > expiration_time
     
     def __repr__(self):
         return f'<Lead {self.title}>' 

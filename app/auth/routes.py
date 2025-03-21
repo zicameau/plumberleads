@@ -66,7 +66,8 @@ def login():
                         'id': user.id,
                         'email': user.email,
                         'full_name': user.full_name,
-                        'is_admin': user.is_admin
+                        'is_admin': user.is_admin,
+                        'email_confirmed_at': response.user.email_confirmed_at
                     }
                     
                     next_page = request.args.get('next')

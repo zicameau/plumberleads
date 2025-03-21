@@ -28,6 +28,9 @@
     <div class="row">
         <div class="col-md-12">
             <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Your Claimed Leads</h5>
+                </div>
                 <div class="card-body">
                     {% if leads %}
                         <div class="table-responsive">
@@ -37,10 +40,8 @@
                                         <th>Title</th>
                                         <th>Customer</th>
                                         <th>Location</th>
-                                        <th>Service Type</th>
                                         <th>Status</th>
                                         <th>Price</th>
-                                        <th>Claimed Date</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -50,16 +51,14 @@
                                         <td>{{ lead.title }}</td>
                                         <td>{{ lead.customer_name }}</td>
                                         <td>{{ lead.city }}, {{ lead.state }}</td>
-                                        <td>{{ lead.service_type }}</td>
                                         <td>
                                             <span class="badge bg-{{ 'success' if lead.status == 'completed' else 'warning' }}">
-                                                {{ lead.status }}
+                                                {{ lead.status|replace('_', ' ')|title }}
                                             </span>
                                         </td>
                                         <td>${{ "%.2f"|format(lead.price) }}</td>
-                                        <td>{{ lead.claimed_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                         <td>
-                                            <a href="{{ url_for('leads.view', id=lead.id) }}" class="btn btn-sm btn-primary">View</a>
+                                            <a href="{{ url_for('leads.view', lead_id=lead.id) }}" class="btn btn-sm btn-primary">View</a>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -68,6 +67,7 @@
                         </div>
                     {% else %}
                         <p class="text-muted">You haven't claimed any leads yet.</p>
+                        <a href="{{ url_for('plumber.nearby_leads') }}" class="btn btn-primary mt-3">View Available Leads</a>
                     {% endif %}
                 </div>
             </div>

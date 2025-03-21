@@ -303,8 +303,7 @@ def create_sample_leads():
             service_details="Detailed information about the service request would go here.",
             urgency=urgency,
             price=price,
-            is_claimed=False,
-            status='new',
+            status='available',
             source='website',
             created_at=datetime.utcnow() - timedelta(days=days_ago, hours=random.randint(0, 23))
         )
@@ -318,7 +317,6 @@ def create_sample_leads():
         service_type = random.choice(service_types)
         urgency = random.choice(urgency_levels)
         days_ago = random.randint(3, 30)
-        claimed_days_ago = random.randint(0, days_ago - 1)
         
         # Add some random variation to coordinates within the city
         lat_variation = random.uniform(-0.05, 0.05)
@@ -354,10 +352,9 @@ def create_sample_leads():
             service_details="This lead has been claimed by a plumber.",
             urgency=urgency,
             price=price,
-            is_claimed=True,
-            claimed_at=datetime.utcnow() - timedelta(days=claimed_days_ago),
-            plumber_id=plumber.id,
             status=random.choice(['in_progress', 'completed']),
+            reserved_by_id=plumber.id,
+            reserved_at=datetime.utcnow() - timedelta(days=random.randint(1, days_ago - 1)),
             notes="Plumber has contacted the customer and scheduled an appointment.",
             source='website',
             created_at=datetime.utcnow() - timedelta(days=days_ago, hours=random.randint(0, 23))
@@ -372,12 +369,12 @@ def create_sample_payments():
     print("Creating sample payments...")
     
     # Get claimed leads
-    claimed_leads = Lead.query.filter_by(is_claimed=True).all()
+    claimed_leads = Lead.query.filter_by(status='completed').all()
     
     for lead in claimed_leads:
         # Create a payment for each claimed lead
         payment = Payment(
-            user_id=lead.plumber_id,
+            user_id=lead.reserved_by_id,
             lead_id=lead.id,
             amount=lead.price,
             currency='USD',
@@ -385,7 +382,7 @@ def create_sample_payments():
             payment_processor='stripe',
             processor_payment_id=f"pi_{random.randint(10000000, 99999999)}",
             status='completed',
-            created_at=lead.claimed_at
+            created_at=lead.reserved_at
         )
         db.session.add(payment)
     

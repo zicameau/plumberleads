@@ -23,7 +23,7 @@ def dashboard():
     else:
         # Get nearby leads
         nearby_leads = Lead.query.filter(
-            Lead.is_claimed == False,
+            Lead.status == 'available',
             Lead.latitude.isnot(None),
             Lead.longitude.isnot(None),
             func.earth_distance(
@@ -33,7 +33,7 @@ def dashboard():
         ).all()
     
     # Get user's claimed leads
-    claimed_leads = Lead.query.filter_by(plumber_id=user_id).all()
+    claimed_leads = Lead.query.filter_by(reserved_by_id=user_id).all()
     
     return render_template('plumber/dashboard.html',
                          user=user,
@@ -46,7 +46,7 @@ def claimed_leads():
         return redirect(url_for('auth.login'))
     
     user_id = session['user']['id']
-    leads = Lead.query.filter_by(plumber_id=user_id).all()
+    leads = Lead.query.filter_by(reserved_by_id=user_id).all()
     return render_template('plumber/claimed_leads.html', leads=leads)
 
 @bp.route('/nearby-leads')
@@ -67,7 +67,7 @@ def nearby_leads():
     else:
         # Get nearby leads within service radius
         leads = Lead.query.filter(
-            Lead.is_claimed == False,
+            Lead.status == 'available',
             Lead.latitude.isnot(None),
             Lead.longitude.isnot(None),
             func.earth_distance(

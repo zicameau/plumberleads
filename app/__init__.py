@@ -2,7 +2,6 @@ import os
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_login import LoginManager, current_user
 from flask_cors import CORS
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
@@ -15,7 +14,6 @@ load_dotenv()
 # Initialize extensions
 db = SQLAlchemy()
 migrate = Migrate()
-login_manager = LoginManager()
 csrf = CSRFProtect()
 sess = Session()
 
@@ -33,18 +31,11 @@ def create_app(config_class=Config):
     # Initialize extensions with app
     db.init_app(app)
     migrate.init_app(app, db)
-    login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
     csrf.init_app(app)
     sess.init_app(app)
     
     # Enable CORS for API routes
     CORS(app, resources={r"/api/*": {"origins": "*"}})
-    
-    # Set up login manager
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
     
     # Set security headers
     @app.after_request

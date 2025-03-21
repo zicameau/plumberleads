@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Complete Your Payment</h3>
+                </div>
+                <div class="card-body">
+                    <div class="lead-summary mb-4">
+                        <h4>{{ lead.title }}</h4>
+                        <p class="text-muted">{{ lead.description }}</p>
+                        <div class="service-info">
+                            <span class="badge bg-primary">{{ lead.service_type }}</span>
+                            <span class="badge bg-info">${{ "%.2f"|format(lead.price) }}</span>
+                        </div>
+                    </div>
+                    
+                    <form id="payment-form" class="mt-4">
+                        <div class="form-group mb-4">
+                            <label for="card-element">Credit or debit card</label>
+                            <div id="card-element" class="form-control">
+                                <!-- Stripe Card Element will be inserted here -->
+                            </div>
+                            <div id="card-errors" class="invalid-feedback" role="alert"></div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="submit-button">
+                            Pay ${{ "%.2f"|format(lead.price) }}
+                        </button>
+                    </form>
+                    
+                    <div class="text-center mt-4">
+                        <p class="text-muted">
+                            Your reservation will expire in <span id="timer" class="text-danger">15:00</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    // Initialize Stripe
+    const stripe = Stripe('{{ config.STRIPE_PUBLIC_KEY }}');
+    const elements = stripe.elements();
+    
+    // Create card Element and mount it
+    const card = elements.create('card', {
+        style: {
+            base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                    color: '#aab7c4'
+                }
+            },
+            invalid: {
+                color: '#9e2146'
+            }
+        }
+    });
+    card.mount('#card-element');
+    
+    // Handle form submission
+    const form = document.getElementById('payment-form');
+    const submitButton = document.getElementById('submit-button');
+    
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        submitButton.disabled = true;
+        
+        try {
+            const { error, paymentMethod } = await stripe.createPaymentMethod({
+                type: 'card',
+                card: card
+            });
+            
+            if (error) {
+                const errorElement = document.getElementById('card-errors');
+                errorElement.textContent = error.message;
+                submitButton.disabled = false;
+            } else {
+                // Send paymentMethod.id to your server
+                const response = await fetch(`/api/leads/{{ lead.id }}/complete-payment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        payment_method_id: paymentMethod.id
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                // Payment successful
+                window.location.href = "{{ url_for('leads.view', lead_id=lead.id) }}";
+            }
+        } catch (error) {
+            const errorElement = document.getElementById('card-errors');
+            errorElement.textContent = error.message;
+            submitButton.disabled = false;
+        }
+    });
+    
+    // Timer functionality
+    function startTimer(reservedAt) {
+        const reservationTime = new Date(reservedAt);
+        const expirationTime = new Date(reservationTime.getTime() + 15 * 60000); // 15 minutes
+        
+        function updateTimer() {
+            const now = new Date();
+            const timeLeft = expirationTime - now;
+            
+            if (timeLeft <= 0) {
+                document.getElementById('timer').textContent = 'EXPIRED';
+                submitButton.disabled = true;
+                return;
+            }
+            
+            const minutes = Math.floor(timeLeft / 60000);
+            const seconds = Math.floor((timeLeft % 60000) / 1000);
+            document.getElementById('timer').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        updateTimer();
+        setInterval(updateTimer, 1000);
+    }
+    
+    // Start the timer with the lead's reservation time
+    startTimer('{{ lead.reserved_at }}');
+</script>
+{% endblock %} 

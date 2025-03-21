@@ -43,6 +43,7 @@ class Config:
     STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
     STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY')
     STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
+    DEFAULT_CURRENCY = os.environ.get('DEFAULT_CURRENCY', 'usd')  # Default to USD if not specified
     
     # Supabase settings
     SUPABASE_URL = os.environ.get('SUPABASE_URL')
@@ -53,6 +54,9 @@ class Config:
     
     # Default lead pricing (in USD)
     DEFAULT_LEAD_PRICE = 15.00
+    
+    # Lead reservation settings
+    LEAD_RESERVATION_EXPIRY_MINUTES = int(os.environ.get('LEAD_RESERVATION_EXPIRY_MINUTES', 15))
     
     # Service areas and types
     SERVICE_AREAS = [

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">Lead Reserved Successfully!</h1>
+            <p class="text-gray-600">Your reservation is now active.</p>
+        </div>
+
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Lead Details</h2>
+            <div class="space-y-2">
+                <p><span class="font-medium">Title:</span> {{ lead.title }}</p>
+                <p><span class="font-medium">Description:</span> {{ lead.description }}</p>
+                <p><span class="font-medium">Service Type:</span> {{ lead.service_type }}</p>
+                <p><span class="font-medium">Price:</span> ${{ "%.2f"|format(lead.price) }}</p>
+            </div>
+        </div>
+
+        <div class="bg-yellow-50 rounded-lg p-4 mb-6">
+            <h2 class="text-lg font-semibold text-yellow-800 mb-2">Reservation Information</h2>
+            <p class="text-yellow-700">Your reservation expires in:</p>
+            <div id="countdown" 
+                 class="text-2xl font-bold text-yellow-800 mt-2"
+                 data-expiration="{{ expiration_timestamp if expiration_timestamp else '' }}">
+                Calculating...
+            </div>
+        </div>
+
+        <div class="flex justify-center space-x-4">
+            <a href="{{ url_for('leads.payment', lead_id=lead.id) }}" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                Proceed to Payment
+            </a>
+            <a href="{{ url_for('main.index') }}" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                Return to Home
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const countdownDiv = document.getElementById('countdown');
+    const expirationTime = parseInt(countdownDiv.dataset.expiration);
+    
+    if (!expirationTime) {
+        countdownDiv.textContent = 'Error: Could not calculate expiration time';
+        countdownDiv.classList.add('text-red-600');
+        return;
+    }
+
+    function updateCountdown() {
+        const now = Date.now();
+        const timeLeft = expirationTime - now;
+        
+        if (timeLeft <= 0) {
+            countdownDiv.textContent = 'EXPIRED';
+            countdownDiv.classList.add('text-red-600');
+            clearInterval(intervalId);
+            return;
+        }
+        
+        const minutes = Math.floor(timeLeft / (1000 * 60));
+        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+        countdownDiv.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    updateCountdown();
+    const intervalId = setInterval(updateCountdown, 1000);
+    
+    window.addEventListener('beforeunload', function() {
+        clearInterval(intervalId);
+    });
+});
+</script>
+{% endblock %} 

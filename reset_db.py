@@ -29,12 +29,15 @@ def reset_database():
             print("Creating all tables...")
             db.create_all()
             
-            # Install required extensions
-            print("Installing required extensions...")
-            with db.engine.connect() as conn:
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS cube"))
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS earthdistance"))
-                conn.commit()
+            # Only install PostgreSQL extensions if using PostgreSQL
+            if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql'):
+                print("Installing required PostgreSQL extensions...")
+                with db.engine.connect() as conn:
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS cube"))
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS earthdistance"))
+                    conn.commit()
+            else:
+                print("Skipping PostgreSQL extensions (not using PostgreSQL)")
             
             print("Database reset successfully!")
             

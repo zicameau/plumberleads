@@ -4,57 +4,52 @@
 
 {% block extra_css %}
 <style>
-    .urgency-high {
-        border-left: 4px solid #dc3545;
-    }
-    .urgency-medium {
-        border-left: 4px solid #ffc107;
-    }
-    .urgency-low {
-        border-left: 4px solid #28a745;
-    }
-    #payment-form {
-        display: none;
-    }
-    .payment-error {
-        color: #dc3545;
-        margin-top: 0.5rem;
-    }
+    .urgency-high { color: #dc3545; }
+    .urgency-medium { color: #ffc107; }
+    .urgency-low { color: #28a745; }
+    .payment-message { display: none; }
+    .payment-message.error { display: block; }
+    .reservation-timer { display: none; }
+    .reservation-timer.active { display: block; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container">
     <div class="row">
-        <div class="col-md-8">
+        <div class="col-md-8 offset-md-2">
             <div class="card">
+                <div class="card-header">
+                    <h1 class="card-title h3 mb-0">{{ lead.title }}</h1>
+                </div>
                 <div class="card-body">
-                    <h1 class="card-title">{{ lead.title }}</h1>
-                    <p class="text-muted">Posted {{ lead.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
-                    
-                    <div class="mb-4">
-                        <h5>Description</h5>
-                        <p>{{ lead.description }}</p>
-                    </div>
-
+                    <!-- Service Details -->
                     <div class="mb-4">
                         <h5>Service Details</h5>
                         <p><strong>Type:</strong> {{ lead.service_type }}</p>
                         <p><strong>Details:</strong> {{ lead.service_details }}</p>
                         <p><strong>Urgency:</strong> 
-                            <span class="badge bg-{{ 'danger' if lead.urgency == 'high' else 'warning' if lead.urgency == 'medium' else 'info' }}">
-                                {{ lead.urgency }}
+                            <span class="urgency-{{ lead.urgency }}">
+                                {{ lead.urgency|title }}
                             </span>
                         </p>
                     </div>
 
+                    <!-- Location -->
                     <div class="mb-4">
                         <h5>Location</h5>
-                        <p>{{ lead.address }}</p>
-                        <p>{{ lead.city }}, {{ lead.state }} {{ lead.zip_code }}</p>
+                        <p>{{ lead.address }}<br>
+                        {{ lead.city }}, {{ lead.state }} {{ lead.zip_code }}</p>
                     </div>
 
-                    {% if lead.is_claimed and lead.plumber_id == current_user.id %}
+                    <!-- Price -->
+                    <div class="mb-4">
+                        <h5>Price</h5>
+                        <p class="h4">${{ "%.2f"|format(lead.price) }}</p>
+                    </div>
+
+                    <!-- Customer Information -->
+                    {% if lead.status == 'claimed' and current_user.id == lead.claimed_by_id %}
                     <div class="mb-4">
                         <h5>Customer Information</h5>
                         <p><strong>Name:</strong> {{ lead.customer_name }}</p>
@@ -62,41 +57,55 @@
                         <p><strong>Phone:</strong> {{ lead.customer_phone }}</p>
                     </div>
                     {% endif %}
+
+                    <!-- Action Buttons -->
+
+                    {% if session.get('user') %}
+                        {% if not session.get('user').is_admin %}
+                            {% if lead.status == 'available' %}
+                            <div class="mb-4">
+                                <form action="{{ url_for('leads.reserve', lead_id=lead.id) }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-primary">Reserve Lead</button>
+                                </form>
+                            </div>
+                            {% elif lead.status == 'reserved' and session.get('user').id == lead.reserved_by_id %}
+                            <div class="reservation-timer active" data-expires="{{ lead.reserved_at }}">
+                                <p><strong>Your reservation expires in:</strong> <span id="timer" class="text-warning"></span></p>
+                                <button class="btn btn-success" id="completePaymentBtn">Complete Payment</button>
+                                <button class="btn btn-secondary" id="releaseBtn">Release Lead</button>
+                            </div>
+                            {% elif lead.status == 'claimed' and session.get('user').id == lead.claimed_by_id %}
+                            <div class="btn-group">
+                                <button class="btn btn-primary" onclick="updateStatus('contacted')">Mark as Contacted</button>
+                                <button class="btn btn-success" onclick="updateStatus('scheduled')">Mark as Scheduled</button>
+                                <button class="btn btn-info" onclick="updateStatus('completed')">Mark as Completed</button>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    {% else %}
+                        {% if lead.status == 'available' %}
+                        <div class="mb-4">
+                            <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Login to Reserve Lead</a>
+                        </div>
+                        {% endif %}
+                    {% endif %}
                 </div>
             </div>
-        </div>
 
-        <div class="col-md-4">
-            <div class="card">
+            <!-- Payment Form -->
+            <div class="card mt-4" id="paymentCard" style="display: none;">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Complete Payment</h5>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">Lead Status</h5>
-                    <ul class="list-unstyled">
-                        <li><strong>Status:</strong> 
-                            <span class="badge bg-{{ 'success' if lead.status == 'completed' else 'warning' if lead.status == 'in_progress' else 'info' }}">
-                                {{ lead.status|replace('_', ' ')|title }}
-                            </span>
-                        </li>
-                        <li><strong>Posted:</strong> {{ lead.created_at.strftime('%Y-%m-%d %H:%M') }}</li>
-                        {% if lead.claimed_at %}
-                        <li><strong>Claimed:</strong> {{ lead.claimed_at.strftime('%Y-%m-%d %H:%M') }}</li>
-                        {% endif %}
-                    </ul>
-
-                    {% if not lead.is_claimed %}
-                    <div class="mt-4">
-                        <h5>Claim Lead</h5>
-                        <p class="text-muted">Price: ${{ "%.2f"|format(lead.price) }}</p>
-                        <form id="claim-form">
-                            <div id="payment-element" class="mb-3">
-                                <!-- Stripe Payment Element will be inserted here -->
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100" id="submit-button">
-                                Claim Lead
-                            </button>
-                        </form>
-                        <div id="payment-message" class="alert alert-danger mt-3" style="display: none;"></div>
-                    </div>
-                    {% endif %}
+                    <div class="alert alert-danger payment-message" id="paymentError"></div>
+                    <form id="payment-form">
+                        <div id="payment-element"></div>
+                        <button class="btn btn-primary mt-3" type="submit" id="submitPayment">
+                            Pay ${{ "%.2f"|format(lead.price) }}
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -104,46 +113,127 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('claim-form');
-        const submitButton = document.getElementById('submit-button');
-        const paymentMessage = document.getElementById('payment-message');
+const stripe = Stripe('{{ config.STRIPE_PUBLIC_KEY }}');
+const elements = stripe.elements();
+let paymentElement;
+
+// Initialize payment element
+function initializePayment(clientSecret) {
+    paymentElement = elements.create('payment');
+    paymentElement.mount('#payment-element');
+    document.getElementById('paymentCard').style.display = 'block';
+}
+
+// Handle payment completion
+document.getElementById('completePaymentBtn')?.addEventListener('click', async () => {
+    try {
+        const response = await fetch(`/api/leads/{{ lead.id }}/complete-payment`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
         
-        if (form) {
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                submitButton.disabled = true;
-                submitButton.innerHTML = 'Processing...';
-                
-                try {
-                    const response = await fetch('{{ url_for("leads.claim", lead_id=lead.id) }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': '{{ csrf_token() }}'
-                        }
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (response.ok) {
-                        // Redirect to the lead view page
-                        window.location.href = '{{ url_for("leads.view", lead_id=lead.id) }}';
-                    } else {
-                        throw new Error(data.error || 'Failed to claim lead');
-                    }
-                } catch (error) {
-                    paymentMessage.textContent = error.message;
-                    paymentMessage.style.display = 'block';
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = 'Claim Lead';
-                }
-            });
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Reload page to show customer details
+            window.location.reload();
+        } else {
+            alert(data.error);
         }
-    });
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while completing the payment');
+    }
+});
+
+// Handle payment form submission
+document.getElementById('payment-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const submitButton = document.getElementById('submitPayment');
+    submitButton.disabled = true;
+    
+    try {
+        const { error } = await stripe.confirmPayment({
+            elements,
+            confirmParams: {
+                return_url: `${window.location.origin}/leads/{{ lead.id }}`,
+            },
+        });
+        
+        if (error) {
+            const errorElement = document.getElementById('paymentError');
+            errorElement.textContent = error.message;
+            errorElement.classList.add('error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while processing the payment');
+    } finally {
+        submitButton.disabled = false;
+    }
+});
+
+// Timer functionality
+function startTimer(reservedAt) {
+    const timerElement = document.getElementById('timer');
+    const expirationTime = new Date(reservedAt.getTime() + 60 * 60 * 1000); // 60 minutes
+    
+    function updateTimer() {
+        const now = new Date();
+        const timeLeft = expirationTime - now;
+        
+        if (timeLeft <= 0) {
+            timerElement.textContent = 'EXPIRED';
+            document.querySelector('.reservation-timer').classList.remove('active');
+            return;
+        }
+        
+        const minutes = Math.floor(timeLeft / (1000 * 60));
+        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    updateTimer();
+    setInterval(updateTimer, 1000);
+}
+
+// Initialize timer if reservation exists
+document.addEventListener('DOMContentLoaded', function() {
+    const reservationTimer = document.querySelector('.reservation-timer');
+    if (reservationTimer && reservationTimer.classList.contains('active')) {
+        const reservedAt = new Date(reservationTimer.dataset.expires);
+        startTimer(reservedAt);
+    }
+});
+
+// Status update functionality
+async function updateStatus(status) {
+    try {
+        const response = await fetch(`/api/leads/{{ lead.id }}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert(data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while updating the status');
+    }
+}
 </script>
 {% endblock %} 

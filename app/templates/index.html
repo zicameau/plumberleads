@@ -12,7 +12,6 @@
             {% if session.get('user') %}
                 <div class="d-grid gap-2 d-md-flex justify-content-md-center">
                     <a href="{{ url_for('leads.available') }}" class="btn btn-primary btn-lg me-md-2">View Available Leads</a>
-                    <a href="{{ url_for('leads.submit') }}" class="btn btn-outline-primary btn-lg">Submit a Lead</a>
                 </div>
             {% else %}
                 <div class="d-grid gap-2 d-md-flex justify-content-md-center">

@@ -1,5 +1,6 @@
 from datetime import datetime
 from app import db
+from flask import current_app
 import json
 import uuid
 
@@ -13,7 +14,6 @@ class User(db.Model):
     phone = db.Column(db.String(20), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)
-    is_verified = db.Column(db.Boolean, default=False)
     profile_image = db.Column(db.String(255))
     business_description = db.Column(db.Text, nullable=False)
     license_number = db.Column(db.String(50), nullable=False)
@@ -32,7 +32,7 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    leads = db.relationship('Lead', backref='plumber', lazy='dynamic')
+    reserved_leads = db.relationship('Lead', foreign_keys='Lead.reserved_by_id', back_populates='reserved_by', lazy='dynamic')
     payments = db.relationship('Payment', backref='user', lazy='dynamic')
     
     def __init__(self, **kwargs):
@@ -58,6 +58,13 @@ class User(db.Model):
             return []
         return json.loads(self.service_types)
     
+    def is_verified(self, verification_status=None):
+        """Check if the user's email is verified.
+        If verification_status is provided, use that instead of checking Supabase."""
+        if verification_status is not None:
+            return verification_status
+        return False  # Default to False if no status provided
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -66,7 +73,7 @@ class User(db.Model):
             'company_name': self.company_name,
             'phone': self.phone,
             'is_active': self.is_active,
-            'is_verified': self.is_verified,
+            'is_verified': self.is_verified(),  # This will now return False by default
             'profile_image': self.profile_image,
             'business_description': self.business_description,
             'license_number': self.license_number,
