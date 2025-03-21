@@ -47,18 +47,17 @@ def view(lead_id):
     current_app.logger.info(f"View route - Lead reserved_at: {lead.reserved_at}")
     current_app.logger.info(f"View route - Lead reserved_by_id: {lead.reserved_by_id}")
     
-    # Calculate expiration time if lead is reserved
-    expiration_timestamp = None
+    # Calculate time left if lead is reserved
+    time_left = None
     if lead.status == 'reserved' and lead.reserved_at:
         expiry_minutes = current_app.config['LEAD_RESERVATION_EXPIRY_MINUTES']
-        expiration_timestamp = int((lead.reserved_at.timestamp() + (expiry_minutes * 60)) * 1000)  # Convert to milliseconds for JS
-        current_app.logger.info(f"View route - Calculated expiration timestamp: {expiration_timestamp}")
-        current_app.logger.info(f"View route - Current time (ms): {int(datetime.utcnow().timestamp() * 1000)}")
-        current_app.logger.info(f"View route - Time until expiration (minutes): {(expiration_timestamp/1000 - datetime.utcnow().timestamp())/60}")
+        expiration_time = lead.reserved_at.timestamp() + (expiry_minutes * 60)
+        time_left = int(expiration_time - datetime.utcnow().timestamp())
+        current_app.logger.info(f"View route - Time left (seconds): {time_left}")
     
     return render_template('leads/view.html', 
                          lead=lead,
-                         expiration_timestamp=expiration_timestamp)
+                         time_left=time_left)
 
 @bp.route('/<uuid:lead_id>/claim', methods=['POST'])
 @login_required
