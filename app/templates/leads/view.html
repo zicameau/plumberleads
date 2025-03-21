@@ -118,6 +118,45 @@
                     </form>
                 </div>
             </div>
+
+            <!-- Lead History -->
+            {% if lead.history %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Lead History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Change</th>
+                                    <th>Details</th>
+                                    <th>User</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in lead.history %}
+                                <tr>
+                                    <td>{{ entry.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>{{ entry.change_type|replace('_', ' ')|title }}</td>
+                                    <td>
+                                        {% if entry.old_value and entry.new_value %}
+                                            Changed from "{{ entry.old_value }}" to "{{ entry.new_value }}"
+                                        {% elif entry.new_value %}
+                                            Set to "{{ entry.new_value }}"
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ entry.user.full_name if entry.user else 'System' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

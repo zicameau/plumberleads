@@ -9,6 +9,7 @@ from app import create_app, db
 from app.models.user import User
 from app.models.lead import Lead
 from app.models.payment import Payment
+from app.models.lead_history import LeadHistory
 from config import config
 
 # Load environment variables
@@ -389,6 +390,60 @@ def create_sample_payments():
     db.session.commit()
     print("Sample payments created!")
 
+def create_sample_lead_history():
+    """Create sample lead history entries for testing."""
+    print("Creating sample lead history...")
+    
+    # Get all leads
+    leads = Lead.query.all()
+    
+    for lead in leads:
+        # Create history entries for status changes
+        if lead.status != 'available':
+            # Log reservation
+            history_entry = LeadHistory(
+                lead_id=lead.id,
+                user_id=lead.reserved_by_id,
+                field_name='status',
+                old_value='available',
+                new_value='reserved',
+                change_type='status_change',
+                created_at=lead.reserved_at
+            )
+            db.session.add(history_entry)
+            
+            # If lead is claimed, log the claim
+            if lead.status == 'claimed':
+                history_entry = LeadHistory(
+                    lead_id=lead.id,
+                    user_id=lead.reserved_by_id,
+                    field_name='status',
+                    old_value='reserved',
+                    new_value='claimed',
+                    change_type='status_change',
+                    created_at=lead.reserved_at + timedelta(minutes=random.randint(1, 30))
+                )
+                db.session.add(history_entry)
+        
+        # Create history entries for price changes
+        if random.random() < 0.3:  # 30% chance of price change
+            old_price = lead.price
+            new_price = old_price + random.randint(-50, 50)
+            if new_price > 0:  # Ensure price doesn't go negative
+                history_entry = LeadHistory(
+                    lead_id=lead.id,
+                    user_id=lead.reserved_by_id,
+                    field_name='price',
+                    old_value=str(old_price),
+                    new_value=str(new_price),
+                    change_type='price_update',
+                    created_at=lead.created_at + timedelta(hours=random.randint(1, 24))
+                )
+                db.session.add(history_entry)
+    
+    db.session.commit()
+    print("Sample lead history created!")
+
 def initialize_database(app=None):
     """Initialize the database with sample data."""
     if app is None:
@@ -398,6 +453,7 @@ def initialize_database(app=None):
         create_sample_users()
         create_sample_leads()
         create_sample_payments()
+        create_sample_lead_history()
 
 if __name__ == '__main__':
     initialize_database() 

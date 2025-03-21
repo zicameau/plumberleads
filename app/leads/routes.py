@@ -145,11 +145,8 @@ def reserve(lead_id):
             flash('This lead is no longer available.', 'error')
             return redirect(url_for('leads.view', lead_id=lead_id))
 
-        # Reserve the lead
-        lead.status = 'reserved'
-        lead.reserved_by_id = user_id
-        lead.reserved_at = datetime.utcnow()
-        db.session.commit()
+        # Reserve the lead using the model's reserve method
+        lead.reserve(user_id)
 
         expiry_minutes = current_app.config['LEAD_RESERVATION_EXPIRY_MINUTES']
         flash(f'Lead reserved successfully! You have {expiry_minutes} minutes to complete the payment before your reservation expires.', 'success')
@@ -265,11 +262,8 @@ def release(lead_id):
             flash('You can only release leads that you have reserved.', 'error')
             return redirect(url_for('leads.view', lead_id=lead_id))
 
-        # Release the lead
-        lead.status = 'available'
-        lead.reserved_by_id = None
-        lead.reserved_at = None
-        db.session.commit()
+        # Release the lead using the model's release method
+        lead.release()
 
         flash('Lead released successfully.', 'success')
         return redirect(url_for('plumber.dashboard'))

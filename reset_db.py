@@ -17,7 +17,7 @@ def reset_database():
     
     try:
         from app import create_app, db
-        from app.models import User, Lead, Payment
+        from app.models import User, Lead, Payment, LeadHistory
         from sqlalchemy import text
 
         app = create_app()
